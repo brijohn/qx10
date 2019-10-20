@@ -1,0 +1,110 @@
+; Symbol file
+
+
+; BIOS Symbols
+bios_vector:          equ 0xf000
+lf003h:               equ 0xf003
+empty_bios:           equ 0xf05d
+interrupt_vec_master: equ 0xf060
+interrupt_vec_slave:  equ 0xf080
+boot:                 equ 0xf0a0
+wboot:                equ 0xf0a7
+const:                equ 0xf0ae
+conin:                equ 0xf0ce
+conout:               equ 0xf0d5
+list:                 equ 0xf119
+punch:                equ 0xf120
+reader:               equ 0xf127
+home:                 equ 0xf12e
+seldsk:               equ 0xf135
+settrk:               equ 0xf13c
+setsec:               equ 0xf143
+setdma:               equ 0xf14a
+read:                 equ 0xf151
+write:                equ 0xf158
+listst:               equ 0xf15f
+sectrn:               equ 0xf166
+qxfunc:               equ 0xf16d
+bios2:                equ 0xf191
+bios2_return:         equ 0xf1c5
+sub_f1d8h:            equ 0xf1d8
+interrupt_handler:    equ 0xf20c
+interrupt_return:     equ 0xf23c
+selbank:              equ 0xf24e
+read_iobyte:          equ 0xf272
+write_iobyte:         equ 0xf285
+read_dskbyte:         equ 0xf298
+write_dskbyte:        equ 0xf2ab
+print_registers:      equ 0xf2be
+word_to_ascii:        equ 0xf312
+byte_to_ascii:        equ 0xf31b
+sub_f344h:            equ 0xf344
+sub_f34eh:            equ 0xf34e
+current_bank:         equ 0xf45d
+byte_to_ascii_done:   equ 0xf476
+
+register_string:      equ 0xf477
+af_value_str:         equ 0xf47d
+bc_value_str:         equ 0xf485
+de_value_str:         equ 0xf48d
+hl_value_str:         equ 0xf495
+pc_value_str:         equ 0xf49d
+stack_c7:             equ 0xf4c7
+stack_ed:             equ 0xf4ed
+
+
+launch_ccp:           equ 0xf4f0
+sub_f510h:            equ 0xf510
+sub_f520h:            equ 0xf520
+sub_f52fh:            equ 0xf52f
+
+drive_mapping:        equ 0xf583
+lfloppy_functions:    equ 0xf5a3
+lfloppy_dph:          equ 0xf5af
+rfloppy_functions:    equ 0xf5bf
+rfloppy_dph:          equ 0xf5cb
+
+lfloppy_dpb:          equ 0xf5db
+rfloppy_dpb:          equ 0xf5ea
+
+floppy_sector_buffer: equ 0xf605
+lfloppy_chksum_vec:   equ 0xf685
+rfloppy_chksum_vec:   equ 0xf6a5
+lfloppy_alloc_vec:    equ 0xf6c5
+rfloppy_alloc_vec:    equ 0xf6dd
+
+hdd1_functions:       equ 0xf6f5
+hdd1_dph:             equ 0xf701
+hdd2_functions:       equ 0xf711
+hdd2_dph:             equ 0xf71d
+
+hdd_dpb:              equ 0xf731
+hdd_sector_buffer:    equ 0xf740
+hdd1_alloc_vec:       equ 0xf7c0
+hdd2_alloc_vec:       equ 0xf8f1
+mem_disk_init:        equ 0xfa22
+mem_disk_functions:   equ 0xfa46
+mem_disk_dph:         equ 0xfa52
+mem_disk_dpb:         equ 0xfa62
+mem_disk_alloc_vec:   equ 0xfa71
+mem_sector_buffer:    equ 0xfa81
+cseg_end:             equ 0xfb01
+
+; BIOS2 Symbols
+bios2_vector:         equ 0x1662
+interrupt_vector:     equ 0x1698
+print_string:         equ 0x3366
+floppy_home:          equ 0xb430
+floppy_write:         equ 0xb45c
+floppy_read:          equ 0xb442
+floppy_select:        equ 0xb3dd
+hdd_home:             equ 0xbb10
+hdd_write:            equ 0xbb33
+hdd_read:             equ 0xbb21
+hdd_select:           equ 0xbaaf
+hdd_init:             equ 0xba93
+mem_disk_home:        equ 0xbfa2
+mem_disk_write:       equ 0xbfb0
+mem_disk_read:        equ 0xbfaa
+mem_disk_select:      equ 0xbfa1
+
