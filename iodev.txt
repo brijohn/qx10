@@ -1,0 +1,72 @@
+
+Epson QX-10 I/O Mainboard Ports
+===============================
+
+* Signal names come from the schematics included wth the
+QX-10 SAMS computerfacts.
+
+| Signal | I/O Port(s) |            Function            |
+|--------|-------------|--------------------------------|
+| BB     | 0x00-0x03   | 8253 Timer                     |
+| CC     | 0x04-0x07   | 8253 Timer                     |
+| DD     | 0x08-0x0B   | 8259 PIC (master)              |
+| EE     | 0x0C-0x0F   | 8259 PIC (slave)               |
+| ~CS    | 0x10-0x13   | NEC 7201 Serial Controller     |
+| ~CS1   | 0x14-0x17   | 8255 Printer Interface         |
+| HH     | 0x18-0x1B   | Bank Switching                 |
+| FF     | 0x1C-0x1F   |                                |
+| GG     | 0x20-0x23   |                                |
+| --     | 0x24-0x2B   | Not Connected                  |
+| ~CSCCR | 0x2C-0x2F   |                                |
+| E1     | 0x30-0x33   |                                |
+| ~CE    | 0x34-0x37   | NEC 765 Floppy Controller      |
+| ~CSCRT | 0x38-0x3B   | CRT                            |
+| g1     | 0x3C-0x3F   | Hitachi 146818 RTC??           |
+|-------------------------------------------------------|
+
+
+Bank Switching
+--------------
+	0x18 - Switch Memory Bank
+		Bank 0: 0x12
+		Bank 1: 0x22
+		Bank 2: 0x42
+		Bank 3: 0x82
+
+Intel 8253 Timer
+----------------
+	0x00, 0x04 - Counter 0
+	0x01, 0x05 - Counter 1
+	0x02, 0x06 - Counter 2
+	0x03, 0x07 - Control Word (Write Only)
+
+Intel 8259 PIC
+--------------
+	0x08, 0x09  - Master PIC
+	0x0C, 0x0D  - Slave PIC
+
+NEC 7201 Serial Controller
+--------------------------
+  Channel A - Keyboard
+  Channel B - RS232 Serial Port
+	0x10 - Data Port (Channel A)
+	0x11 - Data Port (Channel B)
+	0x12 - Command/Status Port (Channel A)
+	0x13 - Command/Status Port (Channel B)
+
+Intel 8255 Printer Interface
+----------------------------
+	0x14 - Port A
+	0x15 - Port B
+	0x16 - Port C
+	0x17 - Control Port (Write Only)
+
+NEC 765 Floppy Controller
+-------------------------
+	0x34 - Floppy Status Port
+	0x35 - Floppy Data Port
+
+Hitachi 146818 Real Time Clock
+------------------------------
+
+
