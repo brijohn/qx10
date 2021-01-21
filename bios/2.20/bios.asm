@@ -1037,8 +1037,8 @@ hdd2_dph:
 
 hdd_dpb:
 	defw 00040h                     ; sectors per track 64
-	defb 004h                       ; block shift f 4
-	defb 00fh                       ; block mask of 16 (2k block size)
+	defb 004h                       ; block shift of 4
+	defb 00fh                       ; block mask of 15 (2k block size)
 	defb 000h                       ; extent mask of 0
 	defw 00987h                     ; DSM of 2439
 	defw 003ffh                     ; DRM of 1023
