@@ -68,7 +68,7 @@ rfloppy_dph:          equ 0xf5cb
 
 lfloppy_dpb:          equ 0xf5db
 rfloppy_dpb:          equ 0xf5ea
-
+nec765_param_table:   equ 0xf5f9
 floppy_sector_buffer: equ 0xf605
 lfloppy_chksum_vec:   equ 0xf685
 rfloppy_chksum_vec:   equ 0xf6a5

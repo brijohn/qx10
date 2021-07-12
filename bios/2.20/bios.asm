@@ -966,18 +966,18 @@ rfloppy_dpb:
 	defw 00020h                     ; checksum vector size of 32
 	defw 00002h                     ; 2 reserved tracks
 
-	defb 010h
-	defb 050h
-	defb 002h
-	defb 003h
-	defb 00ah
-	defb 00fh
-	defb 002h
-	defb 0ffh
-	defb 001h
-	defb 004h
-	defb 000h
-	defb 028h
+nec765_param_table:                 ; Applies to right drive only (Foreign disk formats)
+	defb 010h                       ; BLKSIZE/128
+	defb 050h                       ; HSTBLK * HSTSPT
+	defb 002h                       ; Sector Shift Factor
+	defb 003h                       ; Sector Mask
+	defb 00ah                       ; # Sectors/Track
+	defb 00fh                       ; Disk Gap Factor
+	defb 002h                       ; NEC 765 Sector Factor
+	defw 001ffh                     ; DMA Byte Count Factor
+	defb 004h                       ; Sector Translate Factor
+	defb 000h                       ; Long Disk Flag
+	defb 028h                       ; Disk Track Count
 
 floppy_sector_buffer:
 	defs 080h
