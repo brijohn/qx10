@@ -38,9 +38,19 @@ write_dskbyte:        equ 0xf2ab
 print_registers:      equ 0xf2be
 word_to_ascii:        equ 0xf312
 byte_to_ascii:        equ 0xf31b
-sub_f344h:            equ 0xf344
-sub_f34eh:            equ 0xf34e
+setup_banked_copy:    equ 0xf344
+copy_memblock:        equ 0xf34e
+copy_loop_bytecount:  equ 0xf3d9
+saved_bank:           equ 0xf3db
+copy_memblock_done:   equ 0xf3dc
+copy_buffer:          equ 0xf3dd
 current_bank:         equ 0xf45d
+saved_src_address:    equ 0xf461
+saved_dest_address:   equ 0xf463
+saved_byte_count:     equ 0xf465
+source_bank:          equ 0xf472
+destination_bank:     equ 0xf473
+banked_copy_flag:     equ 0xf474
 byte_to_ascii_done:   equ 0xf476
 
 register_string:      equ 0xf477

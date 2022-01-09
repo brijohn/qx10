@@ -645,68 +645,79 @@ lf33dh:
 	ld (byte_to_ascii_done),a       ; Reset done flag to 0
 	ret
 
-sub_f344h:
-	ld (lf472h),bc
+; FUNCTION: Setup for a banked memory copy
+;   Parameters
+;     B = Source bank
+;     C = Destination bank
+;
+setup_banked_copy:
+	ld (source_bank),bc             ; Store source and destination banks
 	ld a,0ffh
-	ld (lf474h),a
+	ld (banked_copy_flag),a         ; Set banked copy flag (used in copy_memblock)
 	ret
 
-sub_f34eh:
-	ld a,b
+; FUNCTION: Copys a block of memory
+;   Parameters
+;     BC = Number of bytes to copy
+;     HL = Source address
+;     DE = Destination address
+;
+copy_memblock:
+	ld a,b                          ; Load A with top half of BC
 	or c
 	ret z                           ; return if BC == 0
-	ld a,(lf474h)
+	ld a,(banked_copy_flag)         ; A = FF (banked copy), A = 0 (non banked copy)
 	or a
-	jp z,lf3cfh
-	xor a
-	ld (lf474h),a
+	jp z,lf3cfh                     ; Jump if doing a non banked copy
+	xor a                           ; Clear A
+	ld (banked_copy_flag),a         ; Reset to non banked copy for future calls
 	ld a,(current_bank)
-	ld (lf3dbh),a
-	ld (lf465h),bc
-	ld (lf461h),hl
-	ld (lf463h),de
+	ld (saved_bank),a               ; Save current memoy bank
+	ld (saved_byte_count),bc        ; Save original BC (byte count) value
+	ld (saved_src_address),hl       ; Save original HL (src address) value
+	ld (saved_dest_address),de      ; Save original DE (dest address) value
 lf36dh:
-	ld hl,(lf465h)
-	ld de,00080h
-	or a
-	sbc hl,de
-	jr c,lf388h
-	ld a,l
+	ld hl,(saved_byte_count)        ; HL = byte count
+	ld de,00080h                    ; DE = 128 (size of copy buffer)
+	or a                            ; Clear carry flag
+	sbc hl,de                       ; Subtract 128 from byte count
+	jr c,lf388h                     ; Jump if HL (byte count) is less then 128
+	ld a,l                          ; A = bottom half of HL
 	or h
-	jr z,lf388h
-	ld (lf465h),hl
+	jr z,lf388h                     ; Jump if HL (byte count) is 0
+	ld (saved_byte_count),hl        ; Store updated byte count (remaing bytes)
 	ld bc,00080h
-	ld (lf3d9h),bc
+	ld (copy_loop_bytecount),bc     ; Copy 128 bytes this loop iteration
 	jr lf391h
 lf388h:
-	add hl,de
-	ld (lf3d9h),hl
+	add hl,de                       ; Add 128 back to byte count (undo previous subtraction)
+	ld (copy_loop_bytecount),hl     ; Store byte count to transfer this loop iternation
 	ld a,0ffh
-	ld (lf3dch),a
+	ld (copy_memblock_done),a       ; Mark as last loop iteration
 lf391h:
-	ld a,(lf472h)
-	call selbank
-	ld bc,(lf3d9h)
-	ld hl,(lf461h)
-	ld de,lf3ddh
-	ldir
-	ld (lf461h),hl
-	ld a,(lf473h)
-	call selbank
-	ld de,(lf463h)
-	ld bc,(lf3d9h)
-	ld hl,lf3ddh
-	ldir
-	ld (lf463h),de
-	ld a,(lf3dch)
+	ld a,(source_bank)              ; A = src bank
+	call selbank                    ; Select source bank
+	ld bc,(copy_loop_bytecount)     ; BC = Number of bytes (128 or less)
+	ld hl,(saved_src_address)       ; HL = Source address
+	ld de,copy_buffer               ; DE = Temporary copy buffer
+	ldir                            ; Copy next set of 128 bytes to buffer
+	ld (saved_src_address),hl       ; Save updated src address pointer
+	ld a,(destination_bank)         ; A = dest bank
+	call selbank                    ; Select destination bank
+	ld de,(saved_dest_address)      ; DE = Destination address
+	ld bc,(copy_loop_bytecount)     ; BC = Number of bytes (128 or less)
+	ld hl,copy_buffer               ; HL = Temporary copy buffer
+	ldir                            ; Copy buffer to destination address
+	ld (saved_dest_address),de      ; Saved updated dest address pointer
+	ld a,(copy_memblock_done)       ; A = End of loop mark
 	or a
-	jp z,lf36dh
+	jp z,lf36dh                     ; If A == 0 copy next 128 byte block, else we are done
 	xor a
-	ld (lf3dch),a
-	ld a,(lf3dbh)
-	call selbank
+	ld (copy_memblock_done),a       ; Clear end of loop mark
+	ld a,(saved_bank)               ; A = Original bank before copy
+	call selbank                    ; Select original bank
 	ret
-lf3cfh:
+lf3cfh:                             ; Perform non banked copy
 	ldir
 	ret
 
@@ -721,29 +732,25 @@ lf3d5h:
 lf3d7h:
 	defb 000h
 	defb 000h
-lf3d9h:
+copy_loop_bytecount:
+	defw 00000h
+saved_bank:
 	defb 000h
+copy_memblock_done:
 	defb 000h
-lf3dbh:
-	defb 000h
-lf3dch:
-	defb 000h
-lf3ddh:
+copy_buffer:
 	defs 080h
 current_bank:
 	defb 000h
 	defb 000h
 	defb 000h
 	defb 000h
-lf461h:
-	defb 000h
-	defb 000h
-lf463h:
-	defb 000h
-	defb 000h
-lf465h:
-	defb 000h
-	defb 000h
+saved_src_address:
+	defw 00000h
+saved_dest_address:
+	defw 00000h
+saved_byte_count:
+	defw 00000h
 lf467h:
 	defb 000h
 	defb 000h
@@ -758,11 +765,11 @@ lf46fh:
 	defb 000h
 lf471h:
 	defb 000h
-lf472h:
+source_bank:
 	defb 000h
-lf473h:
+destination_bank:
 	defb 000h
-lf474h:
+banked_copy_flag:
 	defb 000h
 lf475h:
 	defb 000h
@@ -854,11 +861,11 @@ lf54dh:
 	ld b,a
 	ld a,(lf3d2h)
 	ld c,a
-	call sub_f344h
+	call setup_banked_copy
 	ld de,00000h
 	ld hl,00000h
 	ld bc,00008h
-	call sub_f34eh
+	call copy_memblock
 	ld a,(lf576h)
 	ld (lf3d2h),a
 	call selbank

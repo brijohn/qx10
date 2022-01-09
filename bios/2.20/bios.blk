@@ -31,7 +31,11 @@ data: unlabeled start 0xf09b unlabeled end 0xf09c type bytedata
 code: unlabeled start 0xf09c unlabeled end 0xf09f type code
 data: unlabeled start 0xf09f unlabeled end 0xf0a0 type bytedata
 code: unlabeled start 0xf0a0 unlabeled end 0xf3d2 type code
-data: unlabeled start 0xf3d2 unlabeled end 0xf4a3 type bytedata
+data: unlabeled start 0xf3d2 unlabeled end 0xf3d9 type bytedata
+data: unlabeled start 0xf3d9 unlabeled end 0xf3db type worddata
+data: unlabeled start 0xf3db unlabeled end 0xf461 type bytedata
+data: unlabeled start 0xf461 unlabeled end 0xf467 type worddata
+data: unlabeled start 0xf467 unlabeled end 0xf4a3 type bytedata
 data: unlabeled start 0xf4a3 unlabeled end 0xf4ef type worddata
 data: unlabeled start 0xf4ef unlabeled end 0xf4f0 type bytedata
 code: unlabeled start 0xf4f0 unlabeled end 0xf573 type code
