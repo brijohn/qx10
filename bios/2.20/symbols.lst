@@ -66,8 +66,11 @@ stack_ed:             equ 0xf4ed
 launch_ccp:           equ 0xf4f0
 sub_f510h:            equ 0xf510
 sub_f520h:            equ 0xf520
-sub_f52fh:            equ 0xf52f
+banked_execute_code:  equ 0xf52f
 
+bank_jump_or_call:    equ 0xf573
+call_return_addr:     equ 0xf574
+call_return_bank:     equ 0xf576
 console_return:       equ 0xf577
 
 drive_mapping:        equ 0xf583

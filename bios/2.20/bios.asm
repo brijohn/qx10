@@ -835,49 +835,50 @@ lf529h:
 	and 001h
 	ret
 
-sub_f52fh:
-	pop de
-	pop bc
-	ld a,(lf573h)
+banked_execute_code:
+	pop de                          ; Pop destination address (DE) off the stack
+	pop bc                          ; Pop destination bank (B) off the stack
+	ld a,(bank_jump_or_call)
 	or a
-	jp nz,lf540h
-	pop hl
-	ld (lf574h),hl
-	ld hl,lf54dh
-	push hl
+	jp nz,lf540h                    ; If A != 0 then we are performing a jump, else a call
+	pop hl                          ; Pop return address (HL) off stack
+	ld (call_return_addr),hl        ; Store original return addreess
+	ld hl,lf54dh                    ;
+	push hl                         ; Push post call cleanup on to stack
 lf540h:
 	xor a
-	ld (lf573h),a
-	push de
+	ld (bank_jump_or_call),a        ; Clear jump/call flag
+	push de                         ; Push destination address on stack
 	ld a,b
-	ld (lf3d2h),a
-	call selbank
-	ret
+	ld (lf3d2h),a                   ; Store destination bank
+	call selbank                    ; Select destination bank
+	ret                             ; Return to destination address in new bank
 
-lf54dh:
-	ld hl,(lf574h)
-	push hl
-	ld a,(lf576h)
+lf54dh:                             ;
+	ld hl,(call_return_addr)        ; HL = original return address
+	push hl                         ; Push return address on stack
+	ld a,(call_return_bank)         ; A = original bank before XBIOS 49 was called
 	ld b,a
-	ld a,(lf3d2h)
+	ld a,(lf3d2h)                   ; A = destination bank passed to XBIOS 49
 	ld c,a
-	call setup_banked_copy
+	call setup_banked_copy          ; Setup banked memcpy
 	ld de,00000h
 	ld hl,00000h
 	ld bc,00008h
-	call copy_memblock
-	ld a,(lf576h)
+	call copy_memblock              ; Copy first 8 bytes from src:0 to dst:0
+	ld a,(call_return_bank)
 	ld (lf3d2h),a
-	call selbank
+	call selbank                    ; Restore original bank
 	xor a
 	ret
 
-lf573h:
+; 0xFF for jump to code in another bank
+; 0x00 for call code in another bank
+bank_jump_or_call:
 	defb 000h
-lf574h:
-	defb 000h
-	defb 000h
-lf576h:
+call_return_addr:
+	defw 00000h
+call_return_bank:
 	defb 000h
 
 lf577h:

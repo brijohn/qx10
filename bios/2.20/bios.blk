@@ -39,7 +39,9 @@ data: unlabeled start 0xf467 unlabeled end 0xf4a3 type bytedata
 data: unlabeled start 0xf4a3 unlabeled end 0xf4ef type worddata
 data: unlabeled start 0xf4ef unlabeled end 0xf4f0 type bytedata
 code: unlabeled start 0xf4f0 unlabeled end 0xf573 type code
-data: unlabeled start 0xf573 unlabeled end 0xf577 type bytedata
+data: unlabeled start 0xf573 unlabeled end 0xf574 type bytedata
+data: unlabeled start 0xf574 unlabeled end 0xf576 type worddata
+data: unlabeled start 0xf576 unlabeled end 0xf577 type bytedata
 code: unlabeled start 0xf577 unlabeled end 0xf582 type code
 data: unlabeled start 0xf582 unlabeled end 0xf583 type bytedata
 data: unlabeled start 0xf583 unlabeled end 0xf5db type pointers
