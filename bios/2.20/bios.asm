@@ -22,7 +22,7 @@ mem_disk_write:  equ 0xbfb0
 
 bios_vector:
 	jp boot
-lf003h:
+warm_boot_vector:
 	jp wboot
 	jp const
 	jp conin
@@ -806,7 +806,7 @@ launch_ccp:
 	ld a,0c3h
 	ld (00000h),a                   ;
 	ld (00005h),a                   ; Set JMP instruction for BIOS and BDOS
-	ld hl,lf003h                    ;
+	ld hl,warm_boot_vector          ;
 	ld (00001h),hl                  ; Set BIOS entry point
 	ld hl,0e206h                    ;
 	ld (00006h),hl                  ; Set BDOS entry point

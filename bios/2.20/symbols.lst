@@ -3,7 +3,7 @@
 
 ; BIOS Symbols
 bios_vector:          equ 0xf000
-lf003h:               equ 0xf003
+warm_boot_vector:     equ 0xf003
 empty_bios:           equ 0xf05d
 interrupt_vec_master: equ 0xf060
 interrupt_vec_slave:  equ 0xf080
