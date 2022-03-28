@@ -1,0 +1,66 @@
+; String handling routines
+;
+; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+PUBLIC PRINTSTRING
+PUBLIC PRINTHEXWORD
+PUBLIC PRINTHEXBYTE
+PUBLIC PRINTWORDSTRING
+
+; Prints NULL terminated string
+; HL = pointer to string
+PRINTSTRING:
+	LD  A, (HL)         ; A = Next character to print
+	CP  0
+	RET Z               ; return if A == 0
+	LD  C, $02          ; Write character
+	LD  E, A            ; Character to write
+	PUSH HL
+	CALL $0005          ; BDOS function
+	POP  HL
+	INC HL              ; Increment to next character
+	JR  PRINTSTRING     ; print next character
+
+; prints fixed sized string of big endian words
+; IX = pointer to string
+; B  = count
+PRINTWORDSTRING:
+	PUSH BC
+	LD  E,(ix+1)        ; Load second byte of word into C
+	LD  C, $02
+	CALL $0005          ; Print Ascii character
+	LD  E,(ix+0)        ; Load first byte of word into C
+	LD  C, $02
+	CALL $0005          ; Print Ascii character
+	POP BC
+	DEC B               ; decrement count
+	RET Z               ; return when count hits 0
+	INC IX              ; Increment IX
+	INC IX              ; Increment IX
+	JR  PRINTWORDSTRING ; Print next word
+
+
+PRINTHEXWORD:
+	LD  A, H
+	CALL PRINTHEXBYTE
+	LD  A, L
+PRINTHEXBYTE:
+	PUSH AF
+	RRA
+	RRA
+	RRA
+	RRA
+	CALL PRINTNIBBLE
+	POP AF
+PRINTNIBBLE:
+	AND $0F
+	ADD A, $90
+	DAA
+	ADC A, $40
+	DAA
+	LD  C, $02          ; Write character
+	LD  E, A            ; Character to write
+	PUSH HL
+	CALL $0005          ; BDOS function
+	POP HL
+	RET
+

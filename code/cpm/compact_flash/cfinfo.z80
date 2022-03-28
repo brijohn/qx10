@@ -1,0 +1,74 @@
+; Program to detect and display Compact Flash identity info
+;
+; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+ORG  $100
+
+EXTERN CFINIT
+EXTERN CFIDENT
+EXTERN PRINTSTRING, PRINTWORDSTRING, PRINTHEXWORD
+
+JP MAIN
+
+SERIAL:     DEFB "   Serial: ",0
+FIRMWARE:   DEFB " Firmware: ",0
+MODEL:      DEFB "    Model: ",0
+CYLINDERS:  DEFB "Cylinders: ",0
+HEADS:      DEFB "    Heads: ",0
+SECTORS:    DEFB "  Sectors: ",0
+LFCR:       DEFB $0A,$0D,0
+
+MAIN:
+	CALL CFINIT            ; Detect and Initialize CF Card
+	LD  HL, BUFFER
+	CALL CFIDENT           ; Read CF identity info into buffer at HL
+	CALL PRINTIDENT        ; Display CF identity
+	JP  $0000              ; Warm reboot (reload ccp)
+
+NEWLINE:
+	LD  HL, LFCR           ;
+	CALL PRINTSTRING       ; Print newline
+	RET
+
+PRINTIDENT:
+	; Print Serial Number
+	LD  HL, SERIAL
+	CALL PRINTSTRING       ; Print Serial label
+	LD  IX, BUFFER+20      ; Index of serial no in identity block
+	LD  B, 10              ; Serial no is 10 words long
+	CALL PRINTWORDSTRING   ; Print serial no
+	CALL NEWLINE           ; print newline
+	; Print Firmware Version
+	LD  HL, FIRMWARE
+	CALL PRINTSTRING       ; Print firmware label
+	LD  IX, BUFFER+46      ; Index of firmware rev in identity block
+	LD  B, 4               ; Firmware rev is 4 words long
+	CALL PRINTWORDSTRING   ; Print firmware rev
+	CALL NEWLINE           ; Print newline
+	; Print Model Name
+	LD  HL, MODEL
+	CALL PRINTSTRING       ; Print model label
+	LD  IX, BUFFER+54      ; Index of model no in identity block
+	LD  B, 20              ; Model no is 20 words long
+	CALL PRINTWORDSTRING   ; Print model no
+	CALL NEWLINE           ; Print newline
+	; Print Cylinder Count
+	LD  HL, CYLINDERS
+	CALL PRINTSTRING       ; Print cylinders label
+	LD HL, (BUFFER+2)      ; Load default cylinder count into HL
+	CALL PRINTHEXWORD      ; Print default cylinder count
+	CALL NEWLINE           ; Print newline
+	; Print Head Count
+	LD  HL, HEADS
+	CALL PRINTSTRING       ; Print heads label
+	LD  HL, (BUFFER+6)     ; Load default head count into HL
+	CALL PRINTHEXWORD      ; Print default head count
+	CALL NEWLINE           ; Print newline
+	; Print Sector Count
+	LD  HL, SECTORS
+	CALL PRINTSTRING       ; Print sectors label
+	LD  HL, (BUFFER+12)    ; Load default sector count into BC
+	CALL PRINTHEXWORD      ; Print default sector count
+	CALL NEWLINE           ; Print newline
+	RET
+
+BUFFER: DS 1024

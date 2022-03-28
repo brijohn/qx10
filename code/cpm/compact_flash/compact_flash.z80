@@ -1,0 +1,203 @@
+; Compact Flash routines
+;
+; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+PUBLIC   CFINIT
+PUBLIC   CFIDENT
+PUBLIC   CFSETCHS
+PUBLIC   CFREAD
+PUBLIC   CFWRITE
+EXTERN   PRINTSTRING, PRINTHEXBYTE
+
+WARMBOOT equ 0
+CFPORT   equ $D0
+CFREG0   equ CFPORT+0  ; DATA PORT
+CFREG1   equ CFPORT+1  ; READ: ERROR CODE, WRITE: FEATURE
+CFREG2   equ CFPORT+2  ; NUMBER OF SECTORS TO TRANSFER
+CFREG3   equ CFPORT+3  ; SECTOR NUMBER
+CFREG4   equ CFPORT+4  ; CYLINDER LOW
+CFREG5   equ CFPORT+5  ; CYLINDER HIGH
+CFREG6   equ CFPORT+6  ; DRIVE HEAD
+CFREG7   equ CFPORT+7  ; READ: STATUS, WRITE: COMMAND
+
+; Initialize Compact flash card
+; Exits with error if card not detected
+; Else configures card for 8 bit mode
+CFINIT:
+	LD  A, $A0
+	OUT (CFREG6), A    ; Activate Card0
+	IN  A, (CFREG6)
+	CP  $A0            ; Make sure we read back what we wrote
+	JR  NZ, NOCFCARD   ; If not we don't have a cfcard inserted
+	IN  A, (CFREG7)    ; Read Compact Flash Status Register
+	AND $50            ; Check if compact flash card is ready
+	CP  $50
+	JP  NZ, NOCFCARD   ; If no, then cfcard not inserted/ready
+	XOR A              ; A = 0
+	OUT (CFREG3), A    ; Initialize sector number
+	OUT (CFREG4), A    ; Initialize cylinder number (low byte)
+	OUT (CFREG5), A    ; Initialize cylinder number (high byte)
+	INC A              ; A = 1
+	OUT (CFREG2), A    ; Initialize sector count
+	OUT (CFREG1), A    ; Set CF 8 bit mode in feature register
+	LD  A, $EF
+	OUT (CFREG7), A    ; Execute Set Feature Command
+	CALL CFWAITRDY     ; Wait till CF card returns to ready status
+	RET
+NOCFCARD:
+	LD  HL, ERRNOCARD  ; No Card inserted error message
+	CALL PRINTSTRING   ; Print error message
+	JP WARMBOOT        ; Reload CCP
+
+; Gets the identity sector from compact flash card
+; HL = Sector Buffer
+CFIDENT:
+	CALL CFWAITRDY     ; Wait for card to be ready
+	LD  A, $EC         ;
+	OUT (CFREG7), A    ; Send get identity command
+	LD  BC, CFREG0     ; B = 00, C = CF Data Port
+	CALL CFWAITDRQ     ; Wait for data request status
+	INIR               ; Read 256 bytes from data port
+	INIR               ; Read 256 bytes from data port
+	RET
+
+; Sets the CHS values to use for read/write
+; BC = Cylinder
+; A = Head
+; E = Sector
+CFSETCHS:
+	LD  (CYLINDER), BC
+	AND $0F
+	LD  (HEAD), A
+	LD  A, E
+	LD  (SECTOR), A
+	RET
+
+; Read Sectors from CF Card
+; D = count
+; HL = Buffer
+CFREAD:
+	CALL CFWAITRDY
+	LD  A, D
+	OUT (CFREG2), A
+	LD  A, (SECTOR)
+	OUT (CFREG3), A
+	LD  BC, (CYLINDER)
+	LD  A, C
+	OUT (CFREG4), A
+	LD  A, B
+	OUT (CFREG5), A
+	LD  A, (HEAD)
+	OR  $A0
+	OUT (CFREG6), A
+	LD  A, $20
+	OUT (CFREG7), A
+	LD  BC, CFREG0
+	CALL CFWAITDRQ     ; Wait for data request status
+CFREADDATA:
+	INIR
+	INIR
+	CALL CFWAITRDY
+	DEC D
+	JR NZ, CFREADDATA
+	RET
+
+; Write Sectors from CF Card
+; D = count
+; HL = Buffer
+CFWRITE:
+	CALL CFWAITRDY
+	LD  A, D
+	OUT (CFREG2), A
+	LD  A, (SECTOR)
+	OUT (CFREG3), A
+	LD  BC, (CYLINDER)
+	LD  A, C
+	OUT (CFREG4), A
+	LD  A, B
+	OUT (CFREG5), A
+	LD  A, (HEAD)
+	OR  $A0
+	OUT (CFREG6), A
+	LD  A, $30
+	OUT (CFREG7), A
+	LD  BC, CFREG0
+	CALL CFWAITDRQ     ; Wait for data request status
+CFWRITEDATA:
+	OTIR
+	OTIR
+	CALL CFWAITRDY
+	DEC D
+	JR NZ, CFWRITEDATA
+	RET
+
+; Waits for CF Card to have its DRQ bit set
+CFWAITDRQ:
+	IN  A, (CFREG7)     ; Read Status
+	AND $88             ; Keep busy and drq bits
+	CP  $08             ; Check for not busy and drq
+	JR  NZ, CFWAITDRQ   ; If DRQ is not set or busy is set loop
+	RET
+
+; Waits for compact flash to be in the not busy and ready state
+CFWAITRDY:
+	PUSH BC
+CFWAITRDY1:
+	IN  A, (CFREG7)    ; Read Compact Flash Status
+	LD  B, A
+	AND $01
+	JP  NZ, CFERROR    ; Exit if error detected
+	LD  A, B
+	AND $C0            ; Mask out BSY and RDY bits.
+	CP  $40            ; Are we RDY, but not BSY
+	JR  NZ, CFWAITRDY1
+	LD  A, B
+	POP BC
+	RET                ; Return Status
+
+CFERROR:
+	IN  A, (CFREG1)
+	PUSH AF
+	CALL PRINTHEXBYTE
+	POP AF
+	BIT 0, A
+	JR  Z, CFERR2
+	LD  HL, ERRGENERAL
+	JR  CFERRPRINT
+CFERR2:
+	BIT 2, A
+	JR  Z, CFERR4
+	LD  HL, ERRABORT
+	JR  CFERRPRINT
+CFERR4:
+	BIT 4, A
+	JR  Z, CFERR6
+	LD  HL, ERRSECTOR
+	JR  CFERRPRINT
+CFERR6:
+	BIT 6, A
+	JR  Z, CFERR7
+	LD  HL, ERRFATAL
+	JR  CFERRPRINT
+CFERR7:
+	BIT 7, A
+	JR  Z, CFERRUNK
+	LD  HL, ERRBADBLOCK
+	JR  CFERRPRINT
+CFERRUNK:
+	LD  HL, ERRUNKNOWN 
+CFERRPRINT:
+	CALL PRINTSTRING   ; Print Error Message
+	JP  WARMBOOT       ; Reload CCP
+
+; Error messages
+ERRGENERAL:  DEFB ": General Error", $0D, $0A, $00
+ERRABORT:    DEFB ": CF Command Aborted", $0D, $0A, $00
+ERRSECTOR:   DEFB ": Sector not found", $0D, $0A, $00
+ERRFATAL:    DEFB ": Unrecoverable Error", $0D, $0A, $00
+ERRBADBLOCK: DEFB ": Bad Block Detected", $0D, $0A, $00
+ERRUNKNOWN:  DEFB ": Unknown Error", $0D, $0A, $00
+ERRNOCARD:   DEFB "No CF Card inserted", $0D, $0A, $00
+
+CYLINDER:    DEFW 0
+HEAD:        DEFB 0
+SECTOR:      DEFB 0
