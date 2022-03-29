@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name "QX10")(type "KiCad")(uri "${KIPRJMOD}/qx10")(options "")(descr ""))
+)
