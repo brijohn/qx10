@@ -1,9 +1,11 @@
 {
   "board": {
-    "active_layer": 0,
+    "active_layer": 37,
     "active_layer_preset": "",
     "auto_track_width": true,
-    "hidden_nets": [],
+    "hidden_nets": [
+      "/A5"
+    ],
     "high_contrast_mode": 0,
     "net_color_mode": 1,
     "opacity": {
@@ -66,7 +68,7 @@
     "zone_display_mode": 0
   },
   "meta": {
-    "filename": "qx10_option_card.kicad_prl",
+    "filename": "qx10_titan_memory.kicad_prl",
     "version": 3
   },
   "project": {
