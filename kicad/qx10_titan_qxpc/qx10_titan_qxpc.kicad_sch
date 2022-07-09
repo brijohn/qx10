@@ -5413,6 +5413,11 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 1390758c-c461-4cc2-947c-cc2e39009f7d)
   )
+  (text "Port D1 - OE2\nPort D3 - OE4\nPort D5 - OE3\nPort D7 - OE1"
+    (at 31.0896 161.1884 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 362ec2b0-fc6a-42b0-a6ef-cb8040beb876)
+  )
   (text "Port D7 (Write)- Trigger 8088 IRQ" (at 164.6174 132.969 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 6a4a1883-5b09-490b-8685-e2fef10cb2bd)
