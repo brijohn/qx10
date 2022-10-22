@@ -1,0 +1,44 @@
+;PALASM Design Description
+
+;---------------------------------- Declaration Segment ------------
+TITLE     Address Decoder for Titan QX-PC Clone
+PATTERN  
+REVISION 
+AUTHOR    Brian Johnson
+COMPANY  
+DATE     07/05/22
+
+CHIP  IODecoder  PALCE16V8
+
+;---------------------------------- PIN Declarations ---------------
+PIN  1          /BSAK                                              ;
+PIN  8..2       ADDR[7..1]                                         ;
+PIN  9          NC                                                 ;
+PIN  10         GND                                                ;
+PIN  11         /OE                                                ;
+PIN  12         NC                                                 ;
+PIN  13         NC                                                 ;
+PIN  14         NC                                                 ;
+PIN  15         NC                                                 ;
+PIN  16..19     /O[3..0]                             COMBINATORIAL ;
+PIN  20         VCC                                                ;
+
+;----------------------------------- Boolean Equation Segment ------
+EQUATIONS
+O[0] = /BSAK * ADDR[1] * ADDR[2] * /ADDR[3] * ADDR[4] * /ADDR[5] * ADDR[6] * ADDR[7]
+O[1] = /BSAK * /ADDR[1] * /ADDR[2] * /ADDR[3] * ADDR[4] * /ADDR[5] * ADDR[6] * ADDR[7]
+O[2] = /BSAK * /ADDR[1] * ADDR[2] * /ADDR[3] * ADDR[4] * /ADDR[5] * ADDR[6] * ADDR[7]
+O[3] = /BSAK * ADDR[1] * /ADDR[2] * /ADDR[3] * ADDR[4] * /ADDR[5] * ADDR[6] * ADDR[7]
+O[3..0].TRST = OE
+;----------------------------------- Simulation Segment ------------
+SIMULATION
+TRACE_ON  ADDR[7..1] /BSAK /O[3..0] /OE
+SETF /BSAK ADDR[7] ADDR[6] /ADDR[5] ADDR[4] /ADDR[3] /ADDR[2] /ADDR[1] /OE
+SETF OE
+SETF /ADDR[2] ADDR[1]
+SETF ADDR[2] /ADDR[1]
+SETF ADDR[2] ADDR[1]
+SETF BSAK
+SETF /BSAK ADDR[5]
+TRACE_OFF
+;-------------------------------------------------------------------

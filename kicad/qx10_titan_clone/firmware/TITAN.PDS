@@ -1,0 +1,47 @@
+;PALASM Design Description
+
+;---------------------------------- Declaration Segment ------------
+TITLE    Titan QXPC Logic
+PATTERN  
+REVISION 
+AUTHOR   Brian Johnson
+COMPANY  
+DATE     07/01/22
+
+CHIP  Titan  PALCE16V8
+
+;---------------------------------- PIN Declarations ---------------
+PIN  1          IO                                                 ;
+PIN  2          VIDMEM                                             ;
+PIN  3          /WR                                                ;
+PIN  4          /RD                                                ;
+PIN  5          /OE2                                               ;
+PIN  6          /OE1                                               ;
+PIN  7          /IWR                                               ;
+PIN  8          /IRD                                               ;
+PIN  9          CLK                                                ;
+PIN  10         GND                                                ;
+PIN  11         Q19                                                ;
+PIN  12         /rCE                                 COMBINATORIAL ;
+PIN  13         /U2OE                                COMBINATORIAL ;
+PIN  14         /mCS                                 COMBINATORIAL ;
+PIN  15         /U16OE                               COMBINATORIAL ;
+PIN  16         U16LE                                COMBINATORIAL ;
+PIN  17         /U19OE                               COMBINATORIAL ;
+PIN  18         U19LE                                COMBINATORIAL ;
+PIN  19         U18LE                                COMBINATORIAL ;
+PIN  20         VCC                                                ;
+
+;----------------------------------- Boolean Equation Segment ------
+EQUATIONS
+rCE = /VIDMEM * Q19
+U2OE = /(IO + Q19) * RD
+mCS = /(IO + Q19)
+U16OE = /(/OE2 + /IRD)
+U16LE = (IO + VIDMEM) * WR * /RD
+U19OE = (IO + VIDMEM) * RD
+U19LE = OE2 * IWR * /IRD
+U18LE = OE1 * IWR * /IRD
+;----------------------------------- Simulation Segment ------------
+SIMULATION
+;-------------------------------------------------------------------
