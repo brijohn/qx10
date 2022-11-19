@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name "QX10")(type "KiCad")(uri "${KIPRJMOD}/QX10.kicad_sym")(options "")(descr ""))
+  (lib (name "EPM7160SLC84-7")(type "KiCad")(uri "${KIPRJMOD}/EPM7160SLC84-7.kicad_sym")(options "")(descr ""))
+)

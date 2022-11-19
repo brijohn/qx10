@@ -1,0 +1,178 @@
+// Copyright (C) 1991-2013 Altera Corporation
+// Your use of Altera Corporation's design tools, logic functions
+// and other software and tools, and its AMPP partner logic
+// functions, and any output files from any of the foregoing
+// (including device programming or simulation files), and any
+// associated documentation or information are expressly subject
+// to the terms and conditions of the Altera Program License
+// Subscription Agreement, Altera MegaCore Function License
+// Agreement, or other applicable license agreement, including,
+// without limitation, that your use is for the sole purpose of
+// programming logic devices manufactured by Altera and sold by
+// Altera or its authorized distributors.  Please refer to the
+// applicable agreement for further details.
+
+// *****************************************************************************
+// This file contains a Verilog test bench template that is freely editable to
+// suit user's needs .Comments are provided in each section to help the user
+// fill out necessary details.
+// *****************************************************************************
+// Generated on "05/02/2022 13:28:24"
+
+// Verilog Test Bench template for design : MemoryController
+//
+// Simulation tool : ModelSim-Altera (Verilog)
+//
+
+`timescale 1 ns/ 10 ps
+module ram(input [18:0] addr, inout [7:0] data, input n_oe, input n_we, input n_ce);
+	reg [7:0] data_out;
+	reg [7:0] mem[524287:0];
+
+	assign data= (~n_oe && ~n_ce && n_we) ? data_out : 8'hz;
+
+	always @(addr or data or n_ce or n_we) begin : MEM_WRITE
+		if (~n_ce && ~n_we) begin
+			mem[addr] <= data;
+		end
+	end
+
+	always @(addr or n_ce or n_we or n_oe) begin : MEM_READ
+		if (~n_ce && ~n_oe & n_we) begin
+			data_out <= mem[addr];
+		end
+	end
+endmodule
+
+module MemoryController_vlg_tst();
+// test vector input registers
+reg [15:0] addr;
+reg [7:0] data;
+wire [7:0] dtb;
+reg nbsak;
+reg niwr;
+reg nmemx;
+reg nmrd;
+reg nmwr;
+reg nrst;
+// wires
+wire nmemrq;
+wire nce1;
+wire nce2;
+wire [18:0]  memaddr;
+wire nmemrd;
+wire nmemwr;
+//Clock
+reg clk;
+
+// assign statements (if any)
+ram mem(memaddr, dtb, nmemrd, nmemwr, nce1);
+ram mem2(memaddr, dtb, nmemrd, nmemwr, nce2);
+MemoryController dut (
+// port map - connection between master ports and signals/registers
+	.clk(clk),
+	.addr(addr),
+	.nce1(nce1),
+	.nce2(nce2),
+	.data(data),
+	.memaddr(memaddr),
+	.nmemrd(nmemrd),
+	.nmemwr(nmemwr),
+	.nbsak(nbsak),
+	.niwr(niwr),
+	.nmemx(nmemx),
+	.nmrd(nmrd),
+	.nmwr(nmwr),
+	.nrst(nrst),
+	.nmemrq(nmemrq)
+	);
+
+always #125 clk <= ~clk;
+
+assign dtb = nmrd ? data : 8'hz;
+
+initial
+begin
+	$display("Running testbench");
+	clk <= 1'b1;
+	addr = 0;
+	data = 0;
+	nmemx = 1;
+	nbsak = 1;
+	niwr = 1;
+	nmwr = 1;
+	nmrd = 1;
+	nrst = 0;
+	repeat(5) @(posedge clk);
+	nrst = 1;
+	write_io(16'h00f0,8'h8F);
+	repeat(2) @(posedge clk);
+	write_mem(16'h1000,8'h55);
+	@(posedge clk);
+	data <= 0;
+	@(posedge clk);
+	read_mem(16'h1000);
+	#28000;
+	$stop();
+end
+
+task write_io;
+	input[15:0] a;
+	input[7:0]  d;
+	begin
+		@(negedge clk) begin
+			addr <= a;
+		end
+		@(posedge clk) begin
+			data <= d;
+		end
+		@(negedge clk) begin
+			niwr <= 0;
+		end
+		repeat(2) @(posedge clk);
+		@(negedge clk) begin
+			niwr <= 1;
+		end
+	end
+endtask
+
+task read_mem;
+	input[15:0] a;
+	begin
+		nmemx <= 0;
+		@(negedge clk) begin
+			addr <= a;
+		end
+		@(posedge clk) begin
+			nmrd <= 0;
+		end
+		repeat(2) @(negedge clk);
+		nmrd <= 1;
+		@(posedge clk);
+		nmemx <= 1;
+	end
+endtask
+
+task write_mem;
+	input[15:0] a;
+	input[7:0]  d;
+	begin
+		nmemx <= 0;
+		@(negedge clk) begin
+			addr <= a;
+		end
+		@(posedge clk) begin
+			data <= d;
+		end
+		@(posedge clk) begin
+			nmwr <= 0;
+		end
+		@(negedge clk) begin
+			nmwr <= 1;
+		end
+		@(posedge clk);
+		nmemx <= 1;
+	end
+endtask
+
+endmodule
