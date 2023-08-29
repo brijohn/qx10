@@ -1,6 +1,6 @@
 ; Program to detect and display Compact Flash identity info
 ;
-; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
 ORG  $100
 
 EXTERN CFINIT
@@ -15,6 +15,7 @@ MODEL:      DEFB "    Model: ",0
 CYLINDERS:  DEFB "Cylinders: ",0
 HEADS:      DEFB "    Heads: ",0
 SECTORS:    DEFB "  Sectors: ",0
+LBA    :    DEFB "  Max LBA: ",0
 LFCR:       DEFB $0A,$0D,0
 
 MAIN:
@@ -66,8 +67,16 @@ PRINTIDENT:
 	; Print Sector Count
 	LD  HL, SECTORS
 	CALL PRINTSTRING       ; Print sectors label
-	LD  HL, (BUFFER+12)    ; Load default sector count into BC
+	LD  HL, (BUFFER+12)    ; Load default sector count into HL
 	CALL PRINTHEXWORD      ; Print default sector count
+	CALL NEWLINE           ; Print newline
+	; Print Max LBA
+	LD  HL, LBA
+	CALL PRINTSTRING       ; Print LBA label
+	LD  HL, (BUFFER+14)    ; Load default LBA (MSW) count into HL
+	CALL PRINTHEXWORD      ; Print default LBA (MSW) count
+	LD  HL, (BUFFER+16)    ; Load default LBA (LSW) count into HL
+	CALL PRINTHEXWORD      ; Print default LBA (LSW) count
 	CALL NEWLINE           ; Print newline
 	RET
 

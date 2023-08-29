@@ -1,7 +1,7 @@
 ; Formats Compact Flash card
 ; For use with version B2.20 only
 ;
-; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
 ORG  $100
 
 EXTERN CFINIT
@@ -22,6 +22,7 @@ PART2MSG:    DEFB "Formatting Partition 2", $0D, $0A, 0
 CYLINDERMSG: DEFB "    Cylinder: ", 0
 HEADMSG:     DEFB "    Head: ", 0
 SECTORMSG:   DEFB "    Sector: ", 0
+LBAMSG:      DEFB "       LBA: ", 0
 STATUSMSG:   DEFB "    Status: ", 0
 LFCR:        DEFB $0A
 CR:          DEFB $0D, 0
@@ -40,8 +41,9 @@ MAIN:
 	CALL FORMAT            ; Format second partition
 	JP $0000               ; Warm reboot (reload ccp)
 
-; Prints current CHS values during formatting
-PRINTCHS:
+; Prints current Sector Address values during formatting
+PRINTADDR:
+IF CHS
 	PUSH AF
 	LD  HL, CR
 	CALL PRINTSTRING
@@ -62,6 +64,24 @@ PRINTCHS:
 	POP AF
 	CALL PRINTHEXBYTE
 	RET
+ELSE
+	PUSH AF
+	LD  HL, CR
+	CALL PRINTSTRING
+	LD  HL, LBAMSG
+	CALL PRINTSTRING
+	LD  A, (HEAD)
+	CALL PRINTHEXBYTE
+	LD  HL, (CYLINDER)
+	CALL PRINTHEXWORD
+	LD  A, (SECTOR)
+	CALL PRINTHEXBYTE
+	LD  HL, STATUSMSG
+	CALL PRINTSTRING
+	POP AF
+	CALL PRINTHEXBYTE
+	RET
+ENDIF
 
 ; Format partition
 ; BC = starting track
@@ -72,11 +92,11 @@ FORMAT:
 	LD  D, DIRSECTORS      ; D = number of sectors for directory
 NEXTBLOCK:
 	PUSH DE                ; Preserve DE
-	CALL SETCHS            ; Convert CPM track/sector to CHS values and setup CF
+	CALL SETADDR           ; Convert CPM track/sector to Sector Address values and setup CF
 	LD  D, 1               ; D  = number of sectors to write 
 	LD  HL, BUFFER         ; HL = sector buffer 
 	CALL CFWRITE           ; Write sector
-	CALL PRINTCHS          ; Update screen with current CHS values
+	CALL PRINTADDR         ; Update screen with current Sector Address values
 	POP DE                 ; Restore DE
 	LD  BC, (CPMTRACK)     ; BC = current track
 	LD  A, (CPMSECTOR)     ; A  = current sector
@@ -94,10 +114,11 @@ SKIPTRACKINC:
 	CALL PRINTSTRING       ; Print newline
 	RET
 
-; Convert CPM track/sector to CHS values
+; Convert CPM track/sector to Sector Address values
 ; BC = Track
 ; A  = Sector
-SETCHS:
+SETADDR:
+IF CHS
 	SRL A
 	SRL A
 	INC A                  ; Divide CPM Sector by 4 and add 1
@@ -126,6 +147,28 @@ SETCHS:
 	LD  A, (HEAD)          ; A  = CF head
 	CALL CFSETCHS          ; Write CHS info to CF in preperation for read/write
 	RET
+ELSE
+	SRL A                  ; Divide CPM Sector by 4
+	SRL A
+	LD   H, B              ; Move BC TO HL
+	LD   L, C
+	ADD  HL, HL            ; Shift CPMTRACK left by 4
+	ADD  HL, HL            ; There are 16 sectors per track
+	ADD  HL, HL            ; so this will multiply the current
+	ADD  HL, HL            ; track by 16.
+	AND  $0F               ; Ensure sector is between 0-15
+	ADD  A, L              ; Add sector to low byte of track
+	LD   (SECTOR), A       ; Store LBA7-0 for later
+	LD   E, A              ; and move it to E
+	LD   A, H
+	LD   (CYLINDER), A     ; Store LBA15-8 for later
+	XOR  A
+	LD   (CYLINDER+1), A   ; LBA24-16 is always 0
+	LD   (HEAD), A         ; Same with LBA28-25
+	LD   BC, (CYLINDER)    ; BC should contain LBA24-8
+	CALL CFSETCHS          ; Write LBA info to CF in preperation for read/write
+	RET
+ENDIF
 
 CPMTRACK:  DEFW 0
 CPMSECTOR: DEFB 0

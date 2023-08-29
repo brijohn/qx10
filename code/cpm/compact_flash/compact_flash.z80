@@ -1,6 +1,6 @@
 ; Compact Flash routines
 ;
-; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
+; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
 PUBLIC   CFINIT
 PUBLIC   CFIDENT
 PUBLIC   CFSETCHS
@@ -60,10 +60,10 @@ CFIDENT:
 	INIR               ; Read 256 bytes from data port
 	RET
 
-; Sets the CHS values to use for read/write
-; BC = Cylinder
-; A = Head
-; E = Sector
+; Sets the CHS/LBA values to use for read/write
+; E = Sector    (LBA7-0)
+; BC = Cylinder (LBA24-8)
+; A = Head      (LBA28-25)
 CFSETCHS:
 	LD  (CYLINDER), BC
 	AND $0F
@@ -87,7 +87,11 @@ CFREAD:
 	LD  A, B
 	OUT (CFREG5), A
 	LD  A, (HEAD)
+IF CHS
 	OR  $A0
+ELSE
+	OR  $E0
+ENDIF
 	OUT (CFREG6), A
 	LD  A, $20
 	OUT (CFREG7), A
@@ -116,7 +120,11 @@ CFWRITE:
 	LD  A, B
 	OUT (CFREG5), A
 	LD  A, (HEAD)
+IF CHS
 	OR  $A0
+ELSE
+	OR  $E0
+ENDIF
 	OUT (CFREG6), A
 	LD  A, $30
 	OUT (CFREG7), A
