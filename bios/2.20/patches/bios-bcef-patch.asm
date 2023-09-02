@@ -26,7 +26,7 @@ setup_hdd_access:
 	ld   a, (hdd_unit)                    ; A = HDD unit. Valid values 0-5
 	rra                                   ; Rotate bit 1 into carry flag
 	jp   nc, lbd14h                       ; if hdd_unit is odd then we are using the disk's
-	ld   de, 00264h                       ; second partition, so add a fixed offset to the
+	ld   de, 003f4h                       ; second partition, so add a fixed offset to the
 	add  hl, de                           ; track we are accessing.
 lbd14h:
 	nop
