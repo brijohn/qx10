@@ -1,0 +1,106 @@
+.define PUBLIC PIN_CLK 13
+
+.program uart_tx
+.side_set 1 opt
+
+; An 9n1 USRT transmit program.
+; OUT pin 0 and side-set pin 0 are both mapped to UART TX pin.
+
+.wrap_target
+	pull       side 1      ; Assert stop bit, or stall with line in idle state
+	wait 0 gpio PIN_CLK
+	wait 1 gpio PIN_CLK
+	set x, 8   side 0      ; Preload bit counter, assert start bit for 8 clocks
+bitloop:
+	wait 0 gpio PIN_CLK
+	wait 1 gpio PIN_CLK           ; This loop will run 8 times (8n1 UART)
+	out pins, 1            ; Shift 1 bit from OSR to the first OUT pin
+	jmp x-- bitloop        ; Each loop iteration is 8 cycles.
+	wait 0 gpio PIN_CLK
+	wait 1 gpio PIN_CLK
+.wrap
+
+
+.program uart_rx
+.wrap_target
+restart:
+	wait 0 pin 0        ; Wait for start bit
+	set x, 8            ; Preload bit counter
+	wait 1 gpio PIN_CLK ; wait for falling edge of clk pin
+	wait 0 gpio PIN_CLK ; wait for falling edge of clk pin
+	jmp pin restart
+bitloop:                ; Loop 9 times
+	wait 1 gpio PIN_CLK ; wait for falling edge of clk pin
+	wait 0 gpio PIN_CLK ; wait for falling edge of clk pin
+	in pins, 1          ; Sample data
+	jmp x-- bitloop     ; Each iteration is 8 cycles
+	push
+.wrap
+
+;Helper function
+
+%c-sdk{
+#include "hardware/clocks.h"
+#define  SM_TX   1
+#define  SM_RX   2
+
+static inline void pio_uart_init(PIO pio, uint rx_offset, uint tx_offset, uint pin_rx, uint pin_tx, uint freq)
+{
+	float clock_divider = (float) clock_get_hz(clk_sys) / freq;
+
+	gpio_pull_up(PIN_CLK);
+	gpio_pull_up(pin_rx);
+	pio_gpio_init(pio, pin_rx);
+	pio_gpio_init(pio, pin_tx);
+
+	//configure RX SM
+	pio_sm_set_consecutive_pindirs(pio, SM_RX, pin_rx, 1, false);
+	pio_sm_config rx = uart_rx_program_get_default_config(rx_offset);
+	sm_config_set_in_shift(&rx, true, false, 9);
+	sm_config_set_in_pins(&rx, pin_rx);
+	sm_config_set_jmp_pin(&rx, pin_rx);
+	sm_config_set_fifo_join(&rx, PIO_FIFO_JOIN_NONE);
+
+	sm_config_set_clkdiv(&rx, clock_divider);
+
+	pio_sm_init(pio, SM_RX, rx_offset, &rx);
+	pio_sm_set_enabled(pio, SM_RX, true);
+
+	//configure TX SM
+	pio_sm_set_pins_with_mask(pio, SM_TX, 1u << pin_tx, 1u << pin_tx);
+	pio_sm_set_consecutive_pindirs(pio, SM_TX, pin_tx, 1, true);
+	pio_sm_config tx = uart_tx_program_get_default_config(tx_offset);
+
+	sm_config_set_out_shift(&tx, true, false, 9);
+	sm_config_set_out_pins(&tx, pin_tx, 1);
+	sm_config_set_sideset_pins(&tx, pin_tx);
+	sm_config_set_fifo_join(&tx, PIO_FIFO_JOIN_NONE);
+
+	sm_config_set_clkdiv(&tx, clock_divider);
+
+	pio_sm_init(pio, SM_TX, tx_offset, &tx);
+	pio_sm_set_enabled(pio, SM_TX, true);
+}
+
+static inline bool uart_rx_program_getc(PIO pio, uint sm, char *c) {
+	uint32_t value = pio_sm_get_blocking(pio, sm);
+	uint8_t parity = (value >> 31);
+
+	*c = (value >> 23) & 0xFF;
+	for (int i = 0; i < 8; ++i) {
+		parity += (*c >> i) & 0x01;
+	}
+
+	return !(parity % 2);
+}
+
+static inline void uart_tx_program_putc(PIO pio, uint sm, char c) {
+	uint32_t value = (uint32_t)c;
+	uint8_t parity = 0;
+	for (int i = 0; i < 8; ++i) {
+		parity += (c >> i) & 0x01;
+	}
+	value = value | ((parity % 2) << 8);
+	pio_sm_put_blocking(pio, sm, value);
+}
+%}
