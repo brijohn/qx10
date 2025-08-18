@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Q10MF")(type "KiCad")(uri "${KIPRJMOD}/Q10MF.kicad_sym")(options "")(descr ""))
+)
