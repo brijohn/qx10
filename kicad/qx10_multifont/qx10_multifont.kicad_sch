@@ -29407,7 +29407,7 @@
 				)
 			)
 		)
-		(property "MFR" ""
+		(property "MFR" "MCP23S17-E/SP"
 			(at 351.79 347.98 0)
 			(effects
 				(font
@@ -29416,7 +29416,7 @@
 				(hide yes)
 			)
 		)
-		(property "Digikey" ""
+		(property "Digikey" "MCP23S17-E/SP-ND"
 			(at 351.79 347.98 0)
 			(effects
 				(font
@@ -32408,7 +32408,7 @@
 				(hide yes)
 			)
 		)
-		(property "MFR" ""
+		(property "MFR" "68001-103HLF"
 			(at 125.73 373.38 0)
 			(effects
 				(font
@@ -32417,7 +32417,7 @@
 				(hide yes)
 			)
 		)
-		(property "Digikey" ""
+		(property "Digikey" "609-3468-ND"
 			(at 125.73 373.38 0)
 			(effects
 				(font
@@ -32499,7 +32499,7 @@
 				(hide yes)
 			)
 		)
-		(property "MFR" ""
+		(property "MFR" "68001-103HLF"
 			(at 125.73 391.16 0)
 			(effects
 				(font
@@ -32508,7 +32508,7 @@
 				(hide yes)
 			)
 		)
-		(property "Digikey" ""
+		(property "Digikey" "609-3468-ND"
 			(at 125.73 391.16 0)
 			(effects
 				(font
@@ -33567,7 +33567,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "00000000-0000-0000-0000-0000706482a4")
 		(property "Reference" "X1"
 			(at 24.13 351.79 0)
@@ -33741,7 +33741,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "00000000-0000-0000-0000-000070732bcf")
 		(property "Reference" "X1"
 			(at 22.86 308.61 0)
@@ -34201,7 +34201,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "00000000-0000-0000-0000-000072a33e2e")
 		(property "Reference" "X1"
 			(at 26.6192 174.625 0)
@@ -34995,7 +34995,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "00000000-0000-0000-0000-000073aa737c")
 		(property "Reference" "X1"
 			(at 23.4442 97.155 0)
@@ -36594,7 +36594,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "2649d734-dca6-40bd-a1df-8e3dc040990b")
 		(property "Reference" "TP2"
 			(at 89.5985 156.21 90)
@@ -37531,7 +37531,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "48ca2000-1544-43ba-9278-452d1444177c")
 		(property "Reference" "TP4"
 			(at 109.9185 340.36 90)
@@ -37996,7 +37996,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "671dfc5a-c641-4820-84b4-4833f3094451")
 		(property "Reference" "TP3"
 			(at 89.5985 158.75 90)
@@ -38145,7 +38145,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "6bf8c906-03d9-4302-8ff7-c778984a1562")
 		(property "Reference" "TP5"
 			(at 73.66 156.9084 0)
@@ -39939,6 +39939,24 @@
 				(hide yes)
 			)
 		)
+		(property "Digikey" "609-3271-ND"
+			(at 241.3 252.73 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MFR" "68001-104HLF "
+			(at 241.3 252.73 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "4"
 			(uuid "bd590065-44cd-4052-8619-99b420cf54c0")
 		)
@@ -40033,7 +40051,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "b37f89f7-eda4-4806-ba95-ddd15731792f")
 		(property "Reference" "TP1"
 			(at 89.5985 153.67 90)
@@ -40382,7 +40400,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "bbd8f024-c291-4f0b-add8-0421c1a20ac5")
 		(property "Reference" "TP6"
 			(at 378.46 135.8899 90)
@@ -41769,7 +41787,7 @@
 				(hide yes)
 			)
 		)
-		(property "MFR" ""
+		(property "MFR" "ATMEGA32A-PU"
 			(at 303.53 220.98 0)
 			(effects
 				(font
@@ -41778,7 +41796,7 @@
 				(hide yes)
 			)
 		)
-		(property "Digikey" ""
+		(property "Digikey" "ATMEGA32A-PU-ND"
 			(at 303.53 220.98 0)
 			(effects
 				(font
