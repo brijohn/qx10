@@ -1,0 +1,903 @@
+        TITLE   * DIS-ASSEMBLED QX-10/16 CPM2.SYS LOADER
+
+
+.Z80
+
+.PHASE 0F000H
+
+
+;
+;  I/O PORT ADDRESS MAP
+;
+BANK     EQU  18h    ; MEMORY BANK SELECT
+ROM      EQU  1Ch    ; ROM (IPL) DISABLE
+CMOS     EQU  20h    ; CMOS SELECT
+CFG      EQU  2Ch    ; MACHINE CONFIG REGISTER
+CRTC     EQU  39h    ; CRT COMMAND
+CRTF     EQU  38h    ; CRT DATA FIFO
+MTRCTL   EQU  30h    ; FDD MOTOR CONTROL
+FDCST    EQU  34h    ; FDC STATUS
+FDCDAT   EQU  35h    ; FDC DATA
+DMACL    EQU  4Dh    ; MASTER RESET
+DMAMD    EQU  4Bh    ; DMA MODE REGISTER
+ADCH0    EQU  40h    ; DMA CH0. ADDRESS
+CTCH0    EQU  41h    ; DMA CH0. WORD COUNT
+DMACM    EQU  48h    ; DMA COMMAND REGISTER
+DMASK    EQU  4Fh    ; DMA MASK REGISTER
+CFDAT    EQU  0D0h   ; CF DATA REGISTER
+CFCNT    EQU  0D2h   ; CF SECTOR COUNT REGISTER
+CFSEC    EQU  0D3h   ; CF SECTOR REGISTER
+CFCLO    EQU  0D4h   ; CF CYLINDER LOW REGISTER
+CFCHI    EQU  0D5h   ; CF CYLINDER HIGH REGISTER
+CFSDH    EQU  0D6h   ; CF DRIVE/HEAD REGISTER
+CFCMD    EQU  0D7h   ; CF COMMAND REGISTER
+CFSTA    EQU  0D7h   ; CF STATUS REGISTER
+;
+;  MEMORY ADDRESSES
+;
+LFFD5H   EQU  0FFD5h ;
+
+LF000H:
+	JP   LF007H
+	DB   0h
+	DB   3h                                  ;System Track is 4 sectors (3 + 1)
+	DW   0AA55h                              ;System Track Signature
+LF007H:
+	DI                                       ;Disable Interrupts
+	LD   SP,0h                               ;Stack at 00h
+	XOR  A
+	OUT  (CMOS),A                            ;Disable CMOS (A=0)
+	INC  A
+	OUT  (ROM),A                             ;Disable ROM (A=1)
+	LD   A,10h
+	OUT  (BANK),A                            ;Select Memory Bank #0
+	CALL fdc_check_ready
+	JR   NZ,floppy_boot                      ;If FDC is ready, boot floppy
+	LD   A,0FFh
+	LD   (HDBOOT),A                     ;HDD boot flag
+	LD   HL,DAT_Unkown
+	LD   DE,XF5CDH
+	LD   BC,4h
+	LDIR
+	CALL hdd_scan_partitions                 ;Scan partition table
+
+floppy_boot:
+	LD   HL,(XF5D5H)
+	LD   (currentTrack),HL
+	LD   HL,0h
+	LD   (dma_address),HL
+	XOR  A
+	LD   (currentSector),A
+
+LF03DH:
+	LD   HL,(XF5CDH)
+	DEC  HL
+	LD   BC,(currentSector)
+	OR   A
+	SBC  HL,BC
+	JR   NC,LF055H
+	LD   HL,(currentTrack)
+	INC  HL
+	LD   (currentTrack),HL
+	XOR  A
+	LD   (currentSector),A
+LF055H:
+	CALL read_sector
+	LD   A,(currentSector)
+	INC  A
+	LD   (currentSector),A
+	LD   HL,(dma_address)
+	LD   DE,200h
+	ADD  HL,DE
+	LD   (dma_address),HL
+	LD   HL,(XF5DFH)
+	INC  HL
+	LD   (XF5DFH),HL
+	LD   DE,(XF5CFH)
+	OR   A
+	SBC  HL,DE
+	JR   NZ,LF03DH
+	LD   IX,0F639h
+	LD   (XF60BH),IX
+LF081H:
+	LD   HL,0h
+	LD   (current_dir_entry),HL
+	LD   A,(HDBOOT)
+	OR   A
+	JR   NZ,LF091H
+	LD   A,10h
+	JR   LF093H
+LF091H:
+	LD   A,8h
+LF093H:
+	LD   (XF60AH),A
+LF096H:
+	LD   HL,(current_dir_entry)
+	CALL match_dir_entry
+	JR   Z,LF0F7H
+	LD   HL,(current_dir_entry)
+	LD   DE,20h
+	ADD  HL,DE
+	LD   (current_dir_entry),HL
+	LD   DE,(dma_address)
+	OR   A
+	SBC  HL,DE
+	JR   NZ,LF096H
+	LD   A,(HDBOOT)
+	OR   A
+	JR   Z,LF0C1H
+LF0B7H:
+	LD   A,(XF60DH)
+	OR   A
+	JP   NZ,load_cpm2_sys
+	JP   LF0D6H
+LF0C1H:
+	LD   A,(XF60EH)
+	OR   A
+	JR   NZ,LF0B7H
+	LD   A,(XF5F2H)
+	INC  A
+	LD   (XF5F2H),A
+	LD   A,0FFh
+	LD   (XF60EH),A
+	JP   LF081H
+LF0D6H:
+	LD   HL,CPMNotFoundLength
+	LD   E,(HL)
+	LD   HL,CPMNotFound
+	LD   BC,3DEh
+	CALL display_string
+LF0E3H:
+	JP   LF0E3H
+
+match_dir_entry:
+	EX   DE,HL
+	LD   HL,cpm2_sys_entry
+	LD   BC,0D0Eh
+LF0EDH:
+	LD   A,(DE)
+	INC  DE
+	AND  7Fh
+	CPI 
+	RET  NZ
+	DJNZ LF0EDH
+	RET
+
+LF0F7H:
+	LD   HL,(current_dir_entry)
+	LD   DE,0Fh
+	ADD  HL,DE
+	LD   DE,DAT_Array
+	LD   BC,11h
+	LDIR
+	LD   IY,0F5F6h
+	LD   IX,(XF60BH)
+	CALL FF17EH
+LF111H:
+	PUSH DE
+	CALL FF1BAH
+	LD   (IX+0h),C
+	LD   (IX+1h),B
+	LD   (IX+2h),L
+	LD   (IX+3h),H
+	DEC  HL
+LF122H:
+	LD   DE,(XF5D3H)
+	ADD  HL,DE
+	LD   DE,(XF5CDH)
+	DEC  DE
+	OR   A
+	SBC  HL,DE
+	JR   C,LF133H
+	JR   NZ,LF14DH
+LF133H:
+	ADD  HL,DE
+	LD   (IX+4h),L
+	LD   (IX+5h),H
+LF13AH:
+	CALL FF17EH
+	POP  HL
+	OR   A
+	SBC  HL,DE
+	INC  HL
+	LD   A,H
+	OR   L
+	JR   Z,LF175H
+	LD   BC,6h
+	ADD  IX,BC
+	JR   LF111H
+LF14DH:
+	LD   (IX+4h),E
+	LD   (IX+5h),D
+	LD   BC,6h
+	ADD  IX,BC
+	DEC  HL
+	LD   (IX+4h),L
+	LD   (IX+5h),H
+	XOR  A
+	LD   (IX+2h),A
+	LD   (IX+3h),A
+	LD   C,(IX-6h)
+	LD   B,(IX-5h)
+	INC  BC
+	LD   (IX+0h),C
+	LD   (IX+1h),B
+	JR   LF13AH
+LF175H:
+	PUSH DE
+	LD   L,(IX+4h)
+	LD   H,(IX+5h)
+	JR   LF122H
+
+FF17EH:
+	LD   A,(XF60AH)
+	OR   A
+	JR   Z,LF19EH
+	DEC  A
+	LD   (XF60AH),A
+	LD   E,(IY+0h)
+	LD   A,(HDBOOT)
+	OR   A
+	JR   Z,LF196H
+	INC  IY
+	LD   A,(IY+0h)
+LF196H:
+	LD   D,A
+	INC  IY
+	OR   E
+	RET  NZ
+	POP  DE
+	JR   load_cpm2_sys
+LF19EH:
+	LD   A,(XF5F2H)
+	INC  A
+	LD   (XF5F2H),A
+	LD   A,1h
+	LD   (XF60DH),A
+	XOR  A
+	LD   (XF60EH),A
+	LD   BC,6h
+	ADD  IX,BC
+	LD   (XF60BH),IX
+	JP   LF081H
+
+FF1BAH:
+	EX   DE,HL
+	LD   A,(XF5D1H)
+	LD   B,A
+LF1BFH:
+	ADD  HL,HL
+	DJNZ LF1BFH
+	LD   DE,(XF5CDH)
+	SCF 
+	CCF 
+	LD   BC,(XF5D5H)
+	DEC  BC
+LF1CDH:
+	SBC  HL,DE
+	INC  BC
+	JR   NC,LF1CDH
+	ADD  HL,DE
+	RET 
+
+load_cpm2_sys:
+	LD   HL,loadingCPMLength
+	LD   E,(HL)
+	LD   HL,loadingCPM
+	LD   BC,3DEh
+	CALL display_string
+	LD   IY,0F639h
+	LD   BC,0h
+	LD   (dma_address),BC
+	LD   C,(IY+0h)
+	LD   B,(IY+1h)
+	LD   (currentTrack),BC
+	LD   C,(IY+2h)
+	LD   B,(IY+3h)
+	LD   (currentSector),BC
+	INC  BC
+	LD   (IY+2h),C
+	LD   (IY+3h),B
+	CALL read_sector
+	LD   HL,(0000h)
+	LD   (XF637H),HL
+	LD   HL,100h
+	LD   DE,0h
+	LD   BC,100h
+	LDIR
+	LD   HL,100h
+	LD   (dma_address),HL
+	LD   IY,0F633h
+LF225H:
+	LD   DE,6h
+	ADD  IY,DE
+	LD   C,(IY+0h)
+	LD   B,(IY+1h)
+	LD   A,B
+	OR   C
+	JR   Z,LF269H
+	LD   (currentTrack),BC
+	LD   C,(IY+2h)
+	LD   B,(IY+3h)
+	LD   (currentSector),BC
+LF242H:
+	LD   BC,(currentSector)
+	LD   L,(IY+4h)
+	LD   H,(IY+5h)
+	OR   A
+	SBC  HL,BC
+	JR   C,LF225H
+	CALL read_sector
+	LD   BC,(currentSector)
+	INC  BC
+	LD   (currentSector),BC
+	LD   HL,(dma_address)
+	LD   DE,200h
+	ADD  HL,DE
+	LD   (dma_address),HL
+	JR   LF242H
+LF269H:
+	LD   HL,LF277H
+	LD   DE,LFFD5H
+	LD   BC,2Bh
+	LDIR
+	JP   LFFD5H
+LF277H:
+	LD   HL,(XF637H)
+	LD   DE,1600h
+	ADD  HL,DE
+	LD   A,(HDBOOT)
+	LD   DE,0F000h
+	LD   BC,0FD5h
+	LDIR
+	LD   HL,0h
+	LD   DE,0DA00h
+	LD   BC,1600h
+	LDIR
+	LD   HL,1600h
+	LD   DE,0h
+	LD   BC,0C400h
+	LDIR
+	JP   0000h                               ;CPM2.SYS Loaded - Cold Boot
+
+display_string:
+	IN   A,(CFG)
+	AND  1h                                  ;Check state of color config bit
+	JR   NZ,LF2CFH                           ;Don't display string if color is enabled
+LF2A8H:
+	LD   A,49h
+	OUT  (CRTC),A
+	LD   A,C
+	OUT  (CRTF),A
+	LD   A,B
+	OUT  (CRTF),A
+	LD   A,4Ah
+	OUT  (CRTC),A
+	LD   A,0FFh
+	OUT  (CRTF),A
+	LD   A,0FFh
+	OUT  (CRTF),A
+	LD   A,20h
+	OUT  (CRTC),A
+	LD   A,(HL)
+	OUT  (CRTF),A
+	LD   A,4h
+	OUT  (CRTF),A
+	INC  BC
+	INC  HL
+	DEC  E
+	JP   NZ,LF2A8H
+LF2CFH:
+	RET 
+
+read_sector:
+	LD   A,(HDBOOT)
+	OR   A
+	JR   NZ,LF2E7H
+	LD   BC,100h
+	LD   A,(currentTrack)
+	LD   D,A
+	LD   A,(currentSector)
+	LD   E,A
+	LD   HL,(dma_address)
+	JP   fdd_read_sector
+LF2E7H:
+	LD   HL,(currentTrack)
+	LD   (trackNumber),HL
+	LD   A,(currentSector)
+	LD   (sectorNumber),A
+	XOR  A
+	LD   (hddUnit),A
+	JP   read_hdd_sector
+
+fdd_enable_motor:
+	OUT  (MTRCTL),A                          ;Enable floppy motor
+	IN   A,(FDCST)
+	AND  10h                                 ;Busy bit
+	JR   NZ,fdd_enable_motor                 ;Wait til FDC not busy
+	IN   A,(FDCST)
+	AND  0Fh                                 ;Check FDC[0-3] busy bits
+	JR   NZ,fdd_enable_motor                 ;Wait till drive is not seeking
+	RET 
+
+fdc_check_ready:
+	CALL fdd_enable_motor                    ;Enable floppy motor
+	LD   A,4h
+	OUT  (FDCDAT),A                          ;Sense Drive Status (A=4)
+	CALL fdc_ready_for_input                 ;undefined fdc_ready_for_input()
+	LD   A,0h                                ;Head = 0, Unit = 0
+	OUT  (FDCDAT),A
+	CALL fdc_ready_for_output                ;undefined fdc_ready_for_output()
+	IN   A,(FDCDAT)                          ;Read drive status
+	AND  20h                                 ;Check drive Ready status
+	RET                                      ;Z = Drive Not Ready, NZ = Drive Ready
+
+printDiskError:
+	LD   HL,diskErrorLength
+	LD   E,(HL)
+	LD   HL,diskError
+	LD   BC,3D4h                             ;VRAM location
+	CALL display_string
+	DI  
+	HALT
+
+diskError:
+	DB   "DISK ERROR, PRESS RESET TO RETRY"
+diskErrorLength:
+	DB   20h
+
+fdd_read_sector:
+	LD   A,(fdd_max_retry)
+	LD   (fdd_retry_count),A
+LF355H:
+	XOR  A
+	LD   (fdd_error),A
+	PUSH HL
+	PUSH DE
+	PUSH BC
+	CALL fdd_read_data
+	POP  BC
+	POP  DE
+	POP  HL
+	OR   A
+	RET  Z
+	LD   (fdd_error),A
+	LD   A,(fdd_retry_count)
+	DEC  A
+	LD   (fdd_retry_count),A
+	JR   NZ,LF355H
+	JP   printDiskError
+
+fdd_read_data:
+	LD   (fdc_unit),BC
+	LD   IX,fdc_drive_params
+	XOR  A
+	LD   (fdc_head),A
+	LD   A,E
+	SUB  (IX+4h)
+	JR   C,LF38BH
+	LD   E,A
+	LD   A,1h
+	LD   (fdc_head),A
+LF38BH:
+	INC  E
+	LD   (dma_base_address),HL
+	LD   (fdc_sector),DE
+	CALL fdc_sense_drive
+	RET  NZ
+	CALL fdd_seek
+	RET  NZ
+	CALL setup_dma_transfer
+	LD   A,46h                               ;FDC read command
+	CALL fdc_write_command_byte
+	LD   A,(fdc_unit)
+	LD   C,A
+	LD   A,(fdc_head)
+	OR   A
+	JR   Z,LF3AFH
+	SET  2h,C
+LF3AFH:
+	LD   A,C
+	CALL fdc_write_command_byte
+	LD   A,(fdc_cylinder)
+	CALL fdc_write_command_byte
+	LD   A,(fdc_head)
+	CALL fdc_write_command_byte
+	LD   A,(fdc_sector)
+	CALL fdc_write_command_byte
+	LD   A,(IX+6h)
+	CALL fdc_write_command_byte
+	LD   A,(IX+4h)
+	CALL fdc_write_command_byte
+	LD   A,(IX+5h)
+	CALL fdc_write_command_byte
+	LD   A,0FFh
+	CALL fdc_write_command_byte
+	CALL fdc_ready_for_output
+	XOR  A
+	OUT  (DMACL),A                           ;Reset DMA Controller
+	CALL fdc_read_response
+	LD   A,(fdc_response_data)
+	AND  0C0h
+	RET  Z
+	LD   A,2h
+	RET 
+
+fdd_seek:
+	LD   A,0Fh
+	CALL fdc_write_command_byte
+	LD   A,(fdc_unit)
+	CALL fdc_write_command_byte
+	LD   A,(fdc_cylinder)
+	CALL fdc_write_command_byte
+	CALL fdc_sense_int
+	RET 
+
+fdc_sense_drive:
+	IN   A,(MTRCTL)
+	OUT  (MTRCTL),A
+	AND  2h
+	JR   Z,LF40EH
+	CALL delay_loop
+LF40EH:
+	LD   A,4h
+	CALL fdc_write_command_byte
+	LD   A,(fdc_unit)
+	CALL fdc_write_command_byte
+	CALL fdc_read_response
+	LD   A,(fdc_response_data)
+	AND  20h
+	XOR  20h
+	RET  Z
+	JP   printDiskError
+
+delay_loop:
+	LD   DE,190h
+LF42AH:
+	CALL delay_inner_loop
+	DEC  DE
+	LD   A,D
+	OR   E
+	JR   NZ,LF42AH
+	RET 
+
+fdc_sense_int:
+	LD   A,8h
+	CALL fdc_write_command_byte
+	CALL fdc_read_response
+	LD   A,(fdc_response_data)
+	BIT  5h,A
+	JR   Z,fdc_sense_int
+	AND  10h
+	RET  Z
+	LD   A,4h
+	OR   A
+	RET 
+
+setup_dma_transfer:
+	LD   BC,6044h
+	XOR  A
+	OUT  (DMACL),A                           ;Reset DMA Controller
+	LD   A,C
+	OUT  (DMAMD),A
+	LD   A,(dma_base_address)
+	OUT  (ADCH0),A
+	LD   A,(dma_base_adress_hi)
+	OUT  (ADCH0),A
+	LD   A,(IX+7h)
+	OUT  (CTCH0),A
+	LD   A,(IX+8h)
+	OUT  (CTCH0),A
+	LD   A,B
+	OUT  (DMACM),A
+	LD   A,0Eh
+	OUT  (DMASK),A
+	XOR  A
+	RET 
+
+fdc_read_response:
+	LD   HL,fdc_response_data
+	LD   C,FDCDAT
+LF474H:
+	IN   A,(FDCST)
+	BIT  7h,A
+	JR   Z,LF474H                            ;Wait till fdc is ready
+	BIT  6h,A
+	RET  Z                                   ;Return if waiting for processor input
+	INI                                      ;Read and store next response byte
+	JR   LF474H
+
+fdc_write_command_byte:
+	LD   C,A                                 ;Save A value
+	CALL fdc_ready_for_input
+	LD   A,C                                 ;Restore A
+	OUT  (FDCDAT),A                          ;Write data to FDC
+	XOR  A                                   ;Zero A
+	RET 
+
+delay_inner_loop:
+	PUSH DE
+	LD   DE,29Ah
+LF48EH:
+	DEC  DE
+	LD   A,D
+	OR   E
+	JR   NZ,LF48EH
+	POP  DE
+	RET 
+
+fdc_ready_for_input:
+	IN   A,(FDCST)
+	BIT  7h,A                                ;Check Request for Master (RQM) bit
+	JR   Z,fdc_ready_for_input               ;Loop until ready
+	BIT  6h,A                                ;Check Data Input/Output (DIO) bit
+	JR   NZ,fdc_ready_for_input              ;Loop until FDC is ready for next byte
+	RET 
+
+fdc_ready_for_output:
+	IN   A,(FDCST)
+	BIT  7h,A
+	JR   Z,fdc_ready_for_output
+	BIT  6h,A
+	JR   Z,fdc_ready_for_output
+	RET 
+
+fdc_drive_params:
+	DB   10h, 50h, 02h, 03h, 0Ah, 0Fh
+	DB   02h, 0FFh, 01h, 04h, 00h, 28h
+
+fdc_head:
+	DB   0h
+
+fdd_error:
+	DB   0h
+
+fdc_sector:
+	DB   0h
+
+fdc_cylinder:
+	DB   0h
+
+fdd_retry_count:
+	DB   0h
+
+dma_base_address:
+	DB   0h
+
+dma_base_adress_hi:
+	DB   0h
+	DW   0h
+
+fdd_max_retry:
+	DB   5h
+	DW   0h
+	DW   0h
+
+fdc_response_data:
+	DS   9
+
+hdd_scan_partitions:
+	LD   A,30h
+	OUT  (CFSDH),A                           ;Deselect drive 0
+	LD   HL,0h
+	LD   (trackNumber),HL                    ;Read track 0
+	XOR  A
+	LD   (hddUnit),A                         ;Set selected drive to 0
+	LD   A,0h                                ;Read sector 0
+	LD   (sectorNumber),A
+	CALL read_hdd_sector                     ;Read MBR (Partition Table
+	LD   HL,1C2h                             ;Offset of the first partition's type...
+	LD   DE,10h                              ;Size of partition entry
+	LD   B,4h                                ;MBR contains 4 partition entries
+LF4ECH:
+	LD   A,(HL)
+	CP   0F0h                                ;Is partition a CP/M partition (0F0h)
+	JR   Z,LF4F5H
+	ADD  HL,DE
+	DJNZ LF4ECH                              ;Check next partition
+	RET 
+LF4F5H:
+	PUSH HL                                  ;HL=partition type addr
+	DEC  HL
+	LD   E,(HL)                              ;E=Cylinder[7-0]
+	DEC  HL
+	LD   A,(HL)
+	AND  0C0h
+	RLCA
+	RLCA
+	LD   D,A                                 ;DE=Cylinder[9-0]
+	DEC  HL
+	LD   C,(HL)
+	LD   B,0h                                ;BC=Head[7-0]
+	EX   DE,HL
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,BC                               ;HL = (Cylinder << 2) | Head
+	LD   (HDOFF1),HL           ;Store starting track of partition
+	POP  HL                                  ;Restore address of partition type
+	INC  HL
+	LD   C,(HL)                              ;C=Head[7-0]
+	INC  HL
+	LD   A,(HL)
+	AND  0C0h
+	RLCA
+	RLCA
+	INC  HL
+	LD   L,(HL)
+	LD   H,A                                 ;HL=Cylinder[9-0]
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,BC                               ;HL= (Cylinder << 2) | Head
+	LD   DE,(HDOFF1)
+	OR   A                                   ;Clear carry
+	SBC  HL,DE                               ;Calculate length of partition
+	INC  HL
+	SRL  H
+	RR   L                                   ;Divide length by two
+	LD   (HDOFF2),HL    ;Store offset of second partition
+	RET 
+
+read_hdd_sector:
+	LD   DE,(trackNumber)
+	LD   HL,(HDOFF2)
+	OR   A                                   ;Clear carry
+	SBC  HL,DE
+	JP   NC,LF53AH
+	LD   A,1h
+	JR   LF55AH
+LF53AH:
+	CALL setup_hdd_params
+	LD   A,20h
+	OUT  (CFCMD),A
+	LD   HL,(dma_address)
+	LD   BC,CFDAT
+LF547H:
+	IN   A,(CFSTA)
+	OR   A
+	JP   M,LF547H
+	INIR
+	INIR
+	LD   B,A
+	LD   A,30h
+	OUT  (CFSDH),A
+	LD   A,B
+	AND  1h
+	RET  Z
+LF55AH:
+	JP   printDiskError
+
+setup_hdd_params:
+	LD   A,0A0h
+	OUT  (CFSDH),A
+	LD   B,A
+	CPL 
+	OUT  (CFCLO),A
+	IN   A,(CFSDH)
+	CP   B
+	JP   NZ,LF5B6H
+	IN   A,(CFSTA)
+	AND  0C0h
+	CP   40h
+	JP   NZ,LF5B6H
+	LD   HL,(trackNumber)
+	LD   DE,(HDOFF1)
+	ADD  HL,DE
+	LD   A,(hddUnit)
+	RRA 
+	JP   NC,LF588H
+	LD   DE,(HDOFF2)
+	ADD  HL,DE
+LF588H:
+	LD   A,(hddUnit)
+	RRCA
+	ADD  A,A
+	ADD  A,A
+	ADD  A,A
+	OR   0E0h
+	AND  0F0h
+	OUT  (CFSDH),A
+	LD   A,H
+	AND  0Fh
+	LD   H,A
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,HL
+	ADD  HL,HL
+	LD   A,(sectorNumber)
+	AND  0Fh
+	ADD  A,L
+	OUT  (CFSEC),A
+	LD   A,H
+	OUT  (CFCLO),A
+	XOR  A
+	OUT  (CFCHI),A
+	LD   A,1h
+	OUT  (CFCNT),A
+LF5AFH:
+	IN   A,(CFSTA)
+	AND  A
+	JP   M,LF5AFH
+	RET 
+LF5B6H:
+	JP   printDiskError
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	NOP 
+	DB   0h
+trackNumber:
+	DW   0h
+hddUnit:
+	DB   0h
+sectorNumber:
+	DB   0h
+HDOFF1:                          ; Start track of CP/M partition
+	DW   0h
+HDOFF2:                          ; Start track of second CP/M partition
+	DW   264h
+XF5CDH:
+	DW   14h
+XF5CFH:
+	DW   8h
+XF5D1H:
+	DB   2h
+	DB   0Fh
+XF5D3H:
+	DW   4h
+XF5D5H:
+	DW   2h
+DAT_Unkown:
+	DW   10h
+	DW   40h
+currentTrack:
+	DW   0h
+currentSector:
+	DB   0h
+	DB   0h
+XF5DFH:
+	DW   0h
+dma_address:
+	DW   0h
+fdc_unit:
+	DW   0h
+HDBOOT:                                      ; FF = HD Boot, 00 = Floppy Boot
+	DB   0h
+cpm2_sys_entry:
+	DB   00h,"CPM2    SYS"
+XF5F2H:
+	DB   0h
+	DW   0h
+DAT_Array:
+	DS   17
+current_dir_entry:
+	DW   0h
+	DW   0h
+XF60AH:
+	DB   0h
+XF60BH:
+	DW   0h
+XF60DH:
+	DB   0h
+XF60EH:
+	DB   0h
+loadingCPM:
+	DB   "LOADING CP/M SYSTEM"
+loadingCPMLength:
+	DB   13h
+CPMNotFound:
+	DB   " CPM2.SYS NOT FOUND"
+CPMNotFoundLength:
+	DB   13h
+XF637H:
+	DW   0h
+XF639H:
+	DS   455
+
+END
