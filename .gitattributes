@@ -2,3 +2,4 @@
 diskimages/** filter=lfs diff=lfs merge=lfs -text
 *.ROM filter=lfs diff=lfs merge=lfs -text
 kicad/qx10_multifont/firmware/font/multfonts.rom filter=lfs diff=lfs merge=lfs -text
+bios/2.27/bios.sys filter=lfs diff=lfs merge=lfs -text
