@@ -5,6 +5,7 @@ include "bios-ioports.inc"
 hdd_read_sector:      equ 0x99b1
 
 SYSDRV:               equ 0x273c
+set_8bit_mode:        equ 0x9abf
 l9acch:               equ 0x9acc
 hdd_part1_off:        equ 0x9adf
 hdd_part2_off:        equ 0x9ae1
@@ -30,10 +31,12 @@ hdd_init_drive:
 	jp nz,no_drive                ; If not equal no hard disk
 	xor a                         ; A = 0 (hard drive adapter found)
 	ld (hdd_found),a              ; Store hdd found flag
-	ld  a, 001h                   ; Feature 8-bit mode
-	out (CF_FEATURE), a           ; Store A in feature register
-	ld  a, 0efh                   ; Set Feature command
-	out (CF_COMMAND), a           ; Write A to command register
+	call set_8bit_mode            ; Feature 8-bit mode
+	nop
+	nop
+	nop
+	nop
+	nop
 	ld a,(SYSDRV)                 ; A = (SYSDRV) 0 = Floppy, 1 = Hard Drive (QX-16 only) 
 	or a                          ; 
 	jr nz,hdd_sysdrv              ; If SYSDRV != 0

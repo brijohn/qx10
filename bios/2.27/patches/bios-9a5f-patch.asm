@@ -34,10 +34,6 @@ hdd_setup_access:
 	ld de,(hdd_part2_off)         ; second partition, so add the offset to the track
 	add hl,de                     ; we are accessing
 l9a8ah:
-	nop
-	nop
-	nop
-	nop
 	ld a,(hdd_unit)               ; A = HDD unit
 	rrca                          ; This computes which drive to access
 	add a,a                       ;  Unit 0,1: Drive 1
@@ -64,18 +60,19 @@ l9a8ah:
 	ld   a, 001h
 	out  (CF_SECTORCOUNT), a      ; Write 1 to sector count register
 	call wait_not_bsy             ; Wait till drive is not busy
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
 	ret
 l9ac2h:
 	ld a,005h                     ; 
 	ld (l9acdh),a                 ;
 	call sub_909eh                ; Handle error
 	jr hdd_setup_access           ; Retry
+
+set_8bit_mode:
+	ld  a, 001h                   ; Feature 8-bit mode
+	out (CF_FEATURE), a           ; Store A in feature register
+	ld  a, 0efh                   ; Set Feature command
+	out (CF_COMMAND), a           ; Write A to command register
+	call wait_not_bsy             ; Wait till drive is not busy
+	nop
+	ret
+
