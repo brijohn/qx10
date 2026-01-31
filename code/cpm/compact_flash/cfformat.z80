@@ -12,63 +12,35 @@ EXTERN PRINTSTRING, PRINTWORDSTRING, PRINTHEXWORD, PRINTHEXBYTE
 
 DIRSECTORS    equ  64   ; Native sectors
 SPT           equ  64   ; CPM sectors
-PART1OFFSET   equ  $2
-IF CHS
-PART2OFFSET   equ  $266
-ELSE
-PART2OFFSET   equ  $3f6
-ENDIF
 
 JP MAIN
 
 PART1MSG:    DEFB "Formatting Partition 1", $0D, $0A, 0
 PART2MSG:    DEFB "Formatting Partition 2", $0D, $0A, 0
-CYLINDERMSG: DEFB "    Cylinder: ", 0
-HEADMSG:     DEFB "    Head: ", 0
-SECTORMSG:   DEFB "    Sector: ", 0
 LBAMSG:      DEFB "       LBA: ", 0
 STATUSMSG:   DEFB "    Status: ", 0
+NOPARTMSG:   DEFB "No partition found.", 0
 LFCR:        DEFB $0A
 CR:          DEFB $0D, 0
 
 MAIN:
-	CALL CFINIT
+	CALL DRIVEINIT
 	LD  HL, PART1MSG
 	CALL PRINTSTRING
-	LD  BC, PART1OFFSET    ; Start at CPM track 2
+	LD  HL, 2              ; start at track 2 of partition
+	LD  BC, (PART1OFF)     ; Start at CPM partition 1 offset
 	XOR A                  ; Start at CPM sector 0
 	CALL FORMAT            ; Format first partition
 	LD  HL, PART2MSG
 	CALL PRINTSTRING
-	LD  BC, PART2OFFSET    ; Start at CPM track 614
+	LD  HL, 2              ; start at track 2 of partition
+	LD  BC, (PART2OFF)     ; Start at CPM partition 2 offset
 	XOR A                  ; Start at CPM sector 0
 	CALL FORMAT            ; Format second partition
 	JP $0000               ; Warm reboot (reload ccp)
 
 ; Prints current Sector Address values during formatting
 PRINTADDR:
-IF CHS
-	PUSH AF
-	LD  HL, CR
-	CALL PRINTSTRING
-	LD  HL, CYLINDERMSG
-	CALL PRINTSTRING
-	LD  HL, (CYLINDER)
-	CALL PRINTHEXWORD
-	LD  HL, HEADMSG
-	CALL PRINTSTRING
-	LD  A, (HEAD)
-	CALL PRINTHEXBYTE
-	LD  HL, SECTORMSG
-	CALL PRINTSTRING
-	LD  A, (SECTOR)
-	CALL PRINTHEXBYTE
-	LD  HL, STATUSMSG
-	CALL PRINTSTRING
-	POP AF
-	CALL PRINTHEXBYTE
-	RET
-ELSE
 	PUSH AF
 	LD  HL, CR
 	CALL PRINTSTRING
@@ -85,13 +57,85 @@ ELSE
 	POP AF
 	CALL PRINTHEXBYTE
 	RET
-ENDIF
+
+DRIVEINIT:
+	CALL CFINIT
+	XOR A
+	LD  E, A
+	LD  B, A
+	LD  C, A
+	CALL CFSETCHS                 ; LBA = 0
+	LD  D, 1                      ; Read 1 Sector
+	LD  HL, MBR                   ; MBR buffer
+	CALL CFREAD                   ; Read MBR
+	LD  HL,(MBR+$1FE)
+	LD  DE,$AA55
+	OR  A                         ; Clear carry bit
+	SBC HL,DE                     ; Check if signautre is equal to aa55
+	JP  NZ,EXIT_INIT              ; If not exit
+	LD  HL,MBR+$1C2               ; HL = Address of first partion entry+4 (Type)
+	LD  DE,$10                    ; DE = Partion entry size (16)
+	LD  B,4                       ; B = Max size of partition table (4)
+NEXTPART:
+	LD  A,(HL)                    ; A = partition type
+	CP  $F0                       ;
+	JR  Z,FOUNDPART               ; If type == 0xF0 we found avalid partition
+	ADD HL,DE                     ; Else check next partition's type
+	DJNZ NEXTPART                 ; Next partition
+	JR  EXIT_INIT                 ; If no valid partition found exit with failure
+FOUNDPART:
+	PUSH HL                       ; Store partition entry pointer on stack
+	DEC HL                        ; HL = address of partition start cylinder (7-0)
+	LD  E,(HL)                    ; E = Low 8 bits of start cylinder
+	DEC HL                        ; HL = address of starting sector/high bits of cylinder
+	LD  A,(HL)                    ; A = (7-6) high bits of cylinder, (5-0) sector
+	AND $C0                       ; Keep only cylinder bits
+	RLCA                          ;
+	RLCA                          ; Rotate bits 7-6 -> 1-0
+	LD  D,A                       ; DE = starting cylinder
+	DEC HL                        ; HL = address of starting head
+	LD  C,(HL)                    ;
+	LD  B,$00                     ; BC = head
+	EX  DE,HL                     ; HL = cylinder
+	ADD HL,HL                     ;
+	ADD HL,HL                     ;
+	ADD HL,BC                     ; HL = (cylinder * 4) + head
+	LD (PART1OFF),HL              ; Store offset to start of partition
+	POP HL
+	INC HL                        ; HL = address of end of partition head
+	LD  C,(HL)                    ; C = head
+	INC HL                        ; HL = address of end of partition top bits of cylinder (7-6)
+	LD  A,(HL)                    ; A = (7-6) high bits of cylinder
+	AND $C0                       ; Keep only the top cylinder bits
+	RLCA                          ;
+	RLCA                          ; Rotate bits 7-6 -> 1-0
+	INC HL                        ; HL = address of end of partition cylinder (5-0)
+	LD  L,(HL)                    ;
+	LD  H,A                       ; HL = end of partition cylinder
+	ADD HL,HL
+	ADD HL,HL
+	ADD HL,BC                     ; HL = (cylinder * 4) + head
+	LD  DE,(PART1OFF)             ; DE = offset to start of maiin partition
+	OR  A                         ; Clear carry bit
+	SBC HL,DE                     ; Calculate total length of first partition
+	INC HL                        ; HL += 1
+	SRL H                         ;
+	RR  L                         ; Divide length by 2
+	ADD HL,DE                     ;
+	LD  (PART2OFF),HL             ; Set start of second partition (length of first partition)
+	RET
+EXIT_INIT:
+	LD  HL,NOPARTMSG
+	CALL PRINTSTRING
+	JP  $0000
 
 ; Format partition
-; BC = starting track
+; HL = starting track
+; BC = Partition offset
 ; A  = starting sector
 FORMAT:
-	LD  (CPMTRACK), BC     ; Store track number
+	ADD HL,BC
+	LD  (CPMTRACK), HL     ; Store track number
 	LD  (CPMSECTOR), A     ; Store Sector number
 	LD  D, DIRSECTORS      ; D = number of sectors for directory
 NEXTBLOCK:
@@ -102,13 +146,13 @@ NEXTBLOCK:
 	CALL CFWRITE           ; Write sector
 	CALL PRINTADDR         ; Update screen with current Sector Address values
 	POP DE                 ; Restore DE
-	LD  BC, (CPMTRACK)     ; BC = current track
+	LD  HL, (CPMTRACK)     ; BC = current track
 	LD  A, (CPMSECTOR)     ; A  = current sector
 	ADD A, $04             ; Increment sector count by 4 (4 cpm sectors per one CF sector)
 	CP  SPT                ; Compare sector count to number of cpm sectors per track
 	JR  NZ, SKIPTRACKINC
-	INC  BC                ; If equal increment track
-	LD  (CPMTRACK), BC     ; and store new track value for next write
+	INC  HL                ; If equal increment track
+	LD  (CPMTRACK), HL     ; and store new track value for next write
 	XOR A                  ; then zero sector count
 SKIPTRACKINC:
 	LD  (CPMSECTOR), A     ; Store cpm sector for next write
@@ -119,43 +163,11 @@ SKIPTRACKINC:
 	RET
 
 ; Convert CPM track/sector to Sector Address values
-; BC = Track
+; HL = Track
 ; A  = Sector
 SETADDR:
-IF CHS
-	SRL A
-	SRL A
-	INC A                  ; Divide CPM Sector by 4 and add 1
-	LD  (SECTOR), A        ; Then store for later
-	LD  A, C               ; A = Low track byte
-	AND $3                 ; Low two bits of cpm track are the CHS head value
-	LD  (HEAD), A          ; Store head value
-	LD  A, C               ; A = Low track byte
-	RRA                    ; Rotate track right two and
-	RRA                    ; mask with 3f to grab the low
-	AND $3F                ; 6 bits of the cylinder value
-	LD  H, A               ; Store this in the H register
-	LD  A, B               ; A = High track byte
-	RRCA                   ; Rotate the two LSB into the
-	RRCA                   ; two MSB
-	LD  L, A               ; Store this value in the L register
-	AND $C0                ; Clear all buts except the top 2 MSB
-	OR H                   ; Combine the 6 LSB of H with the two MSB of A
-	LD  (CYLINDER), A      ; Store low cylinder byte
-	LD  A, L               ;
-	AND $3                 ; Keep only the two LSB
-	LD (CYLINDER+1), A     ; Store high track byte
-	LD  BC, (CYLINDER)     ; BC = CF cylinder
-	LD  A, (SECTOR)
-	LD  E, A               ; E  = CF sector
-	LD  A, (HEAD)          ; A  = CF head
-	CALL CFSETCHS          ; Write CHS info to CF in preperation for read/write
-	RET
-ELSE
 	SRL A                  ; Divide CPM Sector by 4
 	SRL A
-	LD   H, B              ; Move BC TO HL
-	LD   L, C
 	ADD  HL, HL            ; Shift CPMTRACK left by 4
 	ADD  HL, HL            ; There are 16 sectors per track
 	ADD  HL, HL            ; so this will multiply the current
@@ -172,12 +184,14 @@ ELSE
 	LD   BC, (CYLINDER)    ; BC should contain LBA24-8
 	CALL CFSETCHS          ; Write LBA info to CF in preperation for read/write
 	RET
-ENDIF
 
 CPMTRACK:  DEFW 0
 CPMSECTOR: DEFB 0
 CYLINDER:  DEFW 0
 HEAD:      DEFB 0
 SECTOR:    DEFB 0
+PART1OFF:  DEFW 0
+PART2OFF:  DEFW 0
 
+MBR   :    DS 512
 BUFFER:    DS 512, $E5

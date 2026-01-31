@@ -23,10 +23,10 @@ CFREG7   equ CFPORT+7  ; READ: STATUS, WRITE: COMMAND
 ; Exits with error if card not detected
 ; Else configures card for 8 bit mode
 CFINIT:
-	LD  A, $A0
+	LD  A, $E0
 	OUT (CFREG6), A    ; Activate Card0
 	IN  A, (CFREG6)
-	CP  $A0            ; Make sure we read back what we wrote
+	CP  $E0            ; Make sure we read back what we wrote
 	JR  NZ, NOCFCARD   ; If not we don't have a cfcard inserted
 	IN  A, (CFREG7)    ; Read Compact Flash Status Register
 	AND $50            ; Check if compact flash card is ready
@@ -87,11 +87,7 @@ CFREAD:
 	LD  A, B
 	OUT (CFREG5), A
 	LD  A, (HEAD)
-IF CHS
-	OR  $A0
-ELSE
 	OR  $E0
-ENDIF
 	OUT (CFREG6), A
 	LD  A, $20
 	OUT (CFREG7), A
@@ -120,11 +116,7 @@ CFWRITE:
 	LD  A, B
 	OUT (CFREG5), A
 	LD  A, (HEAD)
-IF CHS
-	OR  $A0
-ELSE
 	OR  $E0
-ENDIF
 	OUT (CFREG6), A
 	LD  A, $30
 	OUT (CFREG7), A

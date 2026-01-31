@@ -5,9 +5,6 @@ CFINFO_OBJ = $(CFINFO_SRC:.z80=.o)
 CFFORMAT_SRC = cfformat.z80 compact_flash.z80 strings.z80
 CFFORMAT_OBJ = $(CFFORMAT_SRC:.z80=.o)
 
-# Uncomment to build using CHS adressing instead of LBA
-#ASMFLAGS = -DCHS
-
 CFINFO = cfinfo.com
 CFFORMAT = cfformat.com
 
