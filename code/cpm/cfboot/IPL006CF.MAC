@@ -1,0 +1,1395 @@
+;	Epson QX-10 IPL v0.06
+
+	.PHASE	0000h
+	.Z80
+
+CFDAT	EQU	0D0H ; CF DATA REG
+CFERR	EQU	0D1H ; CF ERROR REG
+CFFTR	EQU	0D1H ; CF FEATURE REG
+CFCNT	EQU	0D2H ; CF SECTOR COUNT REG
+CFSEC	EQU	0D3H ; CF SECTOR REG
+CFCLO	EQU	0D4H ; CF CYLINDER LOW REG
+CFCHI	EQU	0D5H ; CF CYLINDER HIGH REG
+CFSDH	EQU	0D6H ; CF DRIVE/HEAD REG
+CFSTA	EQU	0D7H ; CF STATUS REG
+CFCMD	EQU	0D7H ; CF COMMAND REG
+
+X7001H	EQU	0FC02H		; track number
+X7003H	EQU	0FC05H		; sector number (base 0)
+X7004H	EQU	0FC10H		; WORD pointer to DMA buffer
+
+HF000	EQU	0F000h		;boot0 address
+HFC00	EQU	0FC00h		;FDD and keyboard command parm buffer during IRQ
+;
+;HFC00 		= command
+;  +1  		= drive#
+;  +2  		= track#
+;  +3  		= head#
+;  +4  		= skew
+;  +5  		= data bytes / sector
+;  +6  		= sectors/track
+;  +7  		= gaplength
+;  +8  		= bytes/sector
+;  +9  		= # of pages to load
+;  +10 		= DMA address word
+;  +12 to +18 	= FDD status reg 0-7
+;  +19 		= bit 6 set then command ready for IRQ execution
+;  +20 		= 0 if command successful
+;  +22 		= keyboard status reg 0 (main)
+;  +23 		= keyboard status reg 1
+;  +24 		= keyboard data
+;  +25 		= keyboard transmit IRQ state
+;  +33 		= return address
+;  +39
+;  +41
+;  +43
+
+START:
+	LD  	SP,0000h
+	LD  	A,10h		;memory bank = 0
+	OUT 	(18h),A
+	IM  	0
+;
+;	init speaker timer#1 = 100ms
+;
+	LD  	A,32h
+	OUT 	(03h),A
+	LD  	A,00h
+	OUT 	(00h),A
+	LD  	A,01h
+	OUT 	(00h),A
+;
+;	init speaker timer#2 frequency = 1KHz
+;
+	LD  	A,36h
+	OUT 	(07h),A
+	LD  	A,00h
+	OUT 	(04h),A
+	LD  	A,08h
+	OUT 	(04h),A
+;
+;	init keyboard clock = 1200BPS
+;
+	LD  	A,76h
+	OUT 	(07h),A
+	LD  	A,80h
+	OUT 	(05h),A
+	LD  	A,06h
+	OUT 	(05h),A
+;
+;	init RS232C clock = 9600BPS
+;
+	LD  	A,0B6h
+	OUT 	(07h),A
+	LD  	A,0D4h
+	OUT 	(06h),A
+	LD  	A,00h
+	OUT 	(06h),A
+;
+;	init 8259A interrupt controller (master)
+;
+	LD  	A,95h	;ICW1 = edge sense, 4-byte, multi, with ICW4
+	OUT 	(08h),A
+	LD  	A,07h	;ICW2 = interrupt address table = 780H
+	OUT 	(09h),A
+	LD  	A,80h	;ICW3 = slave is connected to master
+	OUT 	(09h),A
+	LD  	A,02h	;ICW4 = automatic end of interrupt
+	OUT 	(09h),A
+	LD  	A,2Fh	;OCW1 = 00101111 interrupt mask
+	OUT 	(09h),A
+;
+;	init 8259A slave
+;
+	LD  	A,0B5h	;ICW1 = edge sense, 4-byte, multi, with ICW4
+	OUT 	(0Ch),A
+	LD  	A,07h	;ICW2 = interrupt address = 7A0H
+	OUT 	(0Dh),A
+	LD  	A,07h	;ICW3 = slave interrupt level 7 in master
+	OUT 	(0Dh),A
+	LD  	A,02h	;ICW4 = automatic end of interrupt
+	OUT 	(0Dh),A
+	LD  	A,0FAh	;OCW1 = 11111010 interrupt mask
+	OUT 	(0Dh),A
+;
+;	init 7201 keyboard serial interface
+;
+	LD  	HL,H07C0
+	LD  	B,0Bh
+	LD  	C,12h
+	OTIR
+;
+;	init reference clock = 32.768KHz and FDD motor timer length
+;
+	LD  	DE,0A2Eh
+	LD  	C,3Dh
+	OUT 	(C),D	;46818 clock address = 0Ah
+	DEC 	C
+	OUT 	(C),E	;46818 write data 2Eh to address 0Ah
+;
+;	enable FDD timer and set clock = 24hr
+;
+	LD  	D,0Bh
+	LD  	E,0Ah
+	LD  	C,3Dh
+	OUT 	(C),D	;46818 clock address = 0Bh
+	DEC 	C
+	OUT 	(C),E	;46818 write data 0Ah to address 0Bh
+;
+;	flag clock ram as valid
+;
+	LD  	DE,0D80h
+	LD  	C,3Dh
+	OUT 	(C),D	;46818 clock address = 0Dh
+	DEC 	C
+	OUT 	(C),E	;46818 write data 80h to address 0Dh
+;
+;	init 8255 printer interface:
+;		port A byte output
+;		port B bit input
+;		port C bit output
+;		port C bit control
+;
+	LD  	A,0A2h
+	OUT 	(17h),A
+	LD  	A,0Bh
+	OUT 	(17h),A	;set bit 5 port C
+	LD  	A,01h
+	OUT 	(17h),A	;set bit 0 port C
+	LD  	A,0Ah
+	OUT 	(17h),A	;reset bit 5 port C
+;
+;	init DMA controller #1:
+;		CH1 = single mode, address decrement
+;		CH1 CRT base address = H0772
+;		CH1 = PACK low, DREQ low, Extended Write, Fixed Priority
+;		CH1 = Normal Timing, Controller Enabled
+;		CH1 = Addr Holt CH0 disabled, Mem to Mem disabled
+;
+	XOR 	A
+	OUT 	(4Dh),A	;master clear
+	LD  	A,49h	;01001001
+	OUT 	(4Bh),A	;CH1 = single mode, address decrement
+	LD  	HL,H0772	;CH1 base address for CRT
+	LD  	A,L
+	OUT 	(42h),A
+	LD  	A,H
+	OUT 	(42h),A
+	LD  	A,01h	;CH1 word address
+	OUT 	(43h),A
+	XOR 	A
+	OUT 	(43h),A
+	LD  	A,60h	;01100000
+	OUT 	(48h),A	;8 more CH1 parameters listed above
+	LD  	A,0Dh	;00001101
+	OUT 	(4Fh),A	;CH1 mask register
+;
+;	init 7220 Graphics Display Controller
+;
+;	port 39h	W= send command R= read data
+;	port 38h	W= send parm	R= status
+;
+	LD  	A,00h	;reset
+	OUT 	(39h),A
+	LD  	A,6Fh	;generate vert sync as master
+	OUT 	(39h),A
+	IN  	A,(2Ch)	;color or monochrome?
+	AND 	01h	;0=mono 1=color
+	JR  	NZ,H011B	;taken if graphics (color) mode
+;
+; for character (mono) mode
+;
+	LD  	A,0Eh	;specify sync format (blank the display)
+	OUT 	(39h),A
+	LD  	C,38h
+	LD  	B,08h
+	LD  	HL,H07CB
+	OTIR		;send sync format parms for monochrome
+H00D3:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H00D3	;loop until FIFO parm buffer empty
+	LD  	A,4Bh
+	OUT 	(39h),A	;cursor and character characteristics
+	LD  	A,0Fh
+	OUT 	(38h),A	;16 lines per character row (no display cursor)
+	LD  	A,6Dh
+	OUT 	(38h),A	;cursor top line# = 13
+	LD  	A,70h
+	OUT 	(38h),A	;cursor bottom line# = 14
+	LD  	A,46h
+	OUT 	(39h),A	;zoom command
+	XOR 	A
+	OUT 	(38h),A	;zoom factor of 1
+	OUT 	(3Ah),A	;zoom magnification 0
+H00F4:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H00F4	;loop until FIFO parm buffer empty
+	LD  	A,47h
+	OUT 	(39h),A	;pitch command
+	LD  	A,50h
+	OUT 	(38h),A	;80 word addresses / line
+	LD  	A,70h
+	OUT 	(39h),A	;PRAM load command (start addr = 0)
+	LD  	A,00h
+	OUT 	(38h),A	;clear PRAM addr 0
+	OUT 	(38h),A	;clear PRAM addr 1
+	OUT 	(38h),A	;clear PRAM addr 2
+	LD  	A,19h
+	OUT 	(38h),A	;PRAM addr 3 = 19h
+	LD  	IX,H01B4
+	JP  	H04A1
+;
+; for graphics (color) mode
+;
+H011B:
+	LD  	A,0Eh	;specify sync format (blank the display)
+	OUT 	(39h),A
+	LD  	C,38h
+	LD  	B,08h
+	LD  	HL,H07D3
+	OTIR		;send sync format parms for color
+H0128:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0128	;loop until FIFO parm buffer empty
+	LD  	A,4Bh
+	OUT 	(39h),A	;cursor and character characteristics
+	XOR 	A	;clear all cursor/char settings
+	OUT 	(38h),A
+	OUT 	(38h),A
+	OUT 	(38h),A
+	LD  	A,46h
+	OUT 	(39h),A	;zoom command
+	XOR 	A
+	OUT 	(38h),A	;zoom factor of 1
+	OUT 	(3Ah),A	;zoom magnification of 0
+H0144:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0144	;loop until FIFO parm buffer empty
+	LD  	A,47h
+	OUT 	(39h),A	;pitch command
+	LD  	A,28h	;40 word addresses / line
+	OUT 	(38h),A
+	LD  	A,70h
+	OUT 	(39h),A	;PRAM load command (start addr = 0)
+	XOR 	A
+	OUT 	(38h),A	;clear PRAM addr 0
+	OUT 	(38h),A	;clear PRAM addr 1
+	OUT 	(38h),A	;clear PRAM addr 2
+	LD  	A,19h
+	OUT 	(38h),A	;PRAM addr 3 = 19h
+	LD  	A,01h	;to select blue color memory bank
+	LD  	HL,H016B
+	JP  	H04E4	;init/clear blue memory bank
+H016B:
+	LD  	A,04h	;to select red color memory bank
+	LD  	HL,H0173
+	JP  	H04E4	;init/clear red memory bank
+H0173:
+	LD  	A,02h	;to select green color memory bank
+	LD  	HL,H017B
+	JP  	H04E4	;init/clear green memory bank
+H017B:
+	LD  	DE,HF000
+	LD  	HL,H07D3
+	LD  	BC,0008h
+	LDIR
+	LD  	HL,HF000
+	SET 	4,(HL)
+	LD  	B,08h
+	LD  	C,38h
+	LD  	A,0Eh
+	OUT 	(39h),A	;specify sync format (blank the display)
+	OTIR		;init sync format parms for color
+H0195:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0195	;loop until FIFO parm buffer empty
+	LD  	A,47h
+	OUT 	(39h),A	;pitch command
+	LD  	A,28h
+	OUT 	(38h),A	;40 word addresses/line
+	LD  	A,70h
+	OUT 	(39h),A	;PRAM load command (start addr = 0)
+	XOR 	A
+	OUT 	(38h),A	;clear PRAM addr 0
+	OUT 	(38h),A	;clear PRAM addr 1
+	OUT 	(38h),A	;clear PRAM addr 2
+	LD  	A,19h
+	OUT 	(38h),A	;PRAM addr 3 = 19h
+;
+;done with video init
+;test the processor by executing all instructions and checking registers.
+;display DIAGNOSTIC CODE 001 if processor error.
+;also test the memory.
+;display DIAGNOSTIC CODE 002 if memory error
+;
+H01B4:
+	LD  	A,6Bh
+	OUT 	(39h),A	;start display and end idle mode
+	XOR 	A
+	OUT 	(4Dh),A	;master clear (hardware reset)
+	LD  	B,00h
+	LD  	A,B
+	OR  	A
+	JR  	Z,H01C5
+H01C1:
+	JP  	H045C	;DIAGNOSTIC CODE 001 ERROR
+	HALT
+H01C5:
+	LD  	DE,HF000		;test function of RAM area F000h which
+	LD  	HL,H035E		;will be used for boot0
+	LD  	BC,0010h
+	LDIR			;also tests function of LDIR instruction
+	LD  	A,02h
+H035E:
+	JR  	H0361
+	HALT
+H0361:
+	NOP
+	JR  	H0365
+	HALT
+H0365:
+	DEC 	A
+	OR  	A
+	JP  	Z,H036E		;back to ROM
+	JP  	NZ,HF000		;jump to H035E instructions now in RAM
+	HALT
+H036E:
+	LD  	DE,HFC00		;test function of ram area FC00h which
+	LD  	HL,H037C+6	;will be used for FDD IRQ command parms
+	LD  	BC,0006h
+	LDDR			;also tests function of LDDR instruction
+	JP  	HFC00-5		;jumps to code in RAM from next 4 lines below:
+;
+H037C:
+	NOP			;now in RAM
+	NOP
+	JP  	H0382		;back to ROM
+	HALT
+;
+; more testing of memory and stack functions
+;
+H0382:
+	NOP
+	LD  	SP,0000h
+	LD  	IX,0A55Ah
+	LD  	IY,0A55Ah
+	LD  	BC,0A55Ah
+	LD  	DE,0A55Ah
+	LD  	HL,0A55Ah
+	PUSH	AF
+	PUSH	BC
+	PUSH	DE
+	PUSH	HL
+	PUSH	IX
+	PUSH	IY
+	POP 	BC
+	OR  	B
+	OR  	C
+	LD  	C,04h
+H03A4:
+	POP 	DE
+	AND 	D
+	OR  	E
+	DEC 	C
+	JR  	NZ,H03A4
+	POP 	IX
+	LD  	B,0FFh
+	XOR 	B
+	JP  	NZ,H01C1
+	LD  	A,03h
+	CALL	H03BF
+	CALL	NZ,H03C1
+	JP  	Z,H01C1
+	JR  	H03C7
+H03BF:
+	AND 	A
+	RET
+H03C1:
+	OR  	A
+	RET 	NZ
+	JP  	H01C1
+	HALT
+;
+;done with diagnostic testing. begin boot process
+;
+H03C7:
+	LD  	SP,0000h
+	LD  	BC,03E1h		;cursor position for message
+	LD  	HL,H0708		;'INSERT DISKETTE'
+	LD  	E,(HL)
+	INC 	HL
+	LD  	IX,H03D9
+	JP  	H0555
+H03D9:
+	OUT 	(30h),A		;turn on FDD motor
+	CALL	H059C		;status = ready for command
+	LD  	A,03h
+	OUT 	(35h),A		;specify times/mode
+	CALL	H05AB		;ready for output
+;
+;step rate time = 8ms
+;head unload time = 240ms
+;
+	LD  	A,8Fh
+	OUT 	(35h),A
+;
+	CALL	H05AB		;ready for output
+;
+;head load time = 18ms
+;DMA mode
+;
+	LD  	A,12h
+	OUT 	(35h),A
+
+	XOR 	A	;drive 0
+	LD  	(HFC00+1),A
+	LD  	B,3	; number of retries
+X04B3H:
+	CALL	DRDY	;Check Device Ready
+	JP  	NZ,FDBOOT	; -ready-
+	PUSH	BC
+	CALL	WAIT5
+	POP 	BC
+	DJNZ	X04B3H
+	JP  	TSTCF
+;
+FDBOOT:
+	LD  	HL,HFC00+5
+	LD  	A,01h
+	LD  	(HL),A		;1 = data bytes per sector?
+	INC 	HL
+	LD  	A,10h		;16 sectors/track
+	LD  	(HL),A
+	INC 	HL
+	LD  	A,0Eh		;gap length
+	LD  	(HL),A
+	INC 	HL
+	LD  	A,0FFh		;256 bytes/sector
+	LD  	(HL),A
+	LD  	HL,0000h
+	LD  	(HFC00+33),HL
+	LD  	A,00h		;drive 0
+	LD  	(HFC00+1),A
+	CALL	H05E4		;recalibrate
+	LD  	A,27h
+	LD  	(HFC00+2),A		;track#
+	CALL	H05D8		;seek outer track 39
+H0418:
+	LD  	A,00h		;drive 0
+	LD  	(HFC00+1),A
+	CALL	H05E4		;recalibrate
+	LD  	A,(HFC00+20)	;status
+	AND 	A
+	JR  	NZ,H0418		;loop if not successful
+	LD  	BC,03E1h		;cursor position for message
+	LD  	HL,H0762		;blank out insert diskette message
+	LD  	E,(HL)
+	INC 	HL
+	LD  	IX,H0435
+	JP  	H0555
+H0435:
+	LD  	HL,HFC00+1
+	LD  	(HL),00h		;drive 0
+	INC 	HL
+	LD  	(HL),00h		;track 0
+	INC 	HL
+	LD  	(HL),00h		;head 0
+	INC 	HL
+	LD  	(HL),01h		;skew = 1
+	LD  	A,0Ch		;# of 256 byte pages to load
+	LD  	(HFC00+9),A		;so length of load = 0C00h
+	LD  	HL,HF000
+	LD  	(HFC00+10),HL	;DMA load address = HF000
+	LD  	HL,H0418
+	LD  	(HFC00+33),HL	;return address
+	CALL	H0623
+	JR  	Z,H0418		;try again to read track 0
+	JP  	HF000		;go execute boot0
+
+TSTCF:
+	CALL	CFINIT
+	OR  	A
+	JP  	Z,HDBOOT
+	JP  	FDBOOT
+HDBOOT:
+	LD  	DE, 0F000H
+	CALL	RDMBR
+	JP  	Z,CKMBR
+	JP  	FDBOOT
+CKMBR:
+	LD  	DE,1010101001010101B
+	LD  	HL,(0F1FEH)	; test HD checksum at byte 511
+	OR  	A
+	SBC 	HL,DE
+	JP  	Z,SCANPT
+	JP  	FDBOOT
+SCANPT:
+	LD  	B,4
+	LD  	DE,10H
+	LD  	HL,0F1C2H	; search for  0F0h at
+NPART:
+	LD  	A,(HL)		; 1C2, 1D2, 1E2, or 1F2
+	CP  	0F0H
+	JR  	Z,CKBOOT
+	ADD 	HL,DE
+	DJNZ	NPART
+	JP  	FDBOOT
+CKBOOT:
+	AND 	A	; Clear carry
+	LD  	DE,4
+	SBC 	HL,DE
+	LD  	A,(HL)
+	CP  	80H
+	JR  	Z,RDSYS
+	JP  	FDBOOT
+
+;
+; 080H at (-> 080h) + 0
+;
+RDSYS:
+	INC 	HL
+	LD  	A,(HL)
+	INC 	HL
+	LD  	D,(HL)
+	INC 	HL
+	LD  	E,(HL)
+	LD  	(HFC00+43),A
+	LD  	C,A
+	EX  	DE,HL
+	LD  	(HFC00+39),HL
+	LD  	B,1
+	LD  	DE, 0F000H
+	CALL	CFREAD
+	LD  	(HFC00+41),DE
+	JP  	NZ,HDERR
+	LD  	DE,1010101001010101B
+	LD  	HL,(0F005H)
+	OR  	A
+	SBC 	HL,DE
+	JR  	Z,RDTRKS
+SYSERR:
+	JP  	FDBOOT
+RDTRKS:
+	LD  	A,(0F003H)
+	OR  	A
+	JR  	NZ,SYSERR
+	LD  	A,(0F004H)
+	OR  	A
+	JR  	Z,CFBOOT
+	LD  	B,A
+	LD  	A,(HFC00+43)
+	LD  	C,A
+	LD  	DE,(HFC00+41)
+	LD  	HL,(HFC00+39)
+	INC 	H
+	CALL	CFREAD
+	JR  	NZ,HDERR
+CFBOOT:
+	LD  	BC,03E1h		;cursor position for message
+	LD  	HL,H0762		;blank out insert diskette message
+	LD  	E,(HL)
+	INC 	HL
+	LD  	IX,0F000H      ; Return to boot0
+	JP  	H0555
+HDERR:
+	JP  	FDBOOT
+
+;
+;	DIAGNOSTIC CODE 001 error
+;
+;	sound continuous tone = 1Khz
+;
+H045C:
+	LD  	A,14h		;nnnnn1nn = speaker on
+	OUT 	(18h),A
+	LD  	HL,H0718
+	LD  	IX,H0469
+	JR  	H0499
+H0469:
+	JR  	H0469
+	HALT
+;
+;	DIAGNOSTIC CODE 002 error
+;
+H046C:
+	LD  	HL,H073D
+	LD  	IX,H0475
+	JR  	H0499
+
+;
+;	sound repeated tones 1 per second
+;
+H0475:
+	LD  	A,14h		;nnnnn1nn = speaker on
+	OUT 	(18h),A
+	CALL	WAIT5
+	LD  	A,10h		;nnnnn0nn = speaker off
+	OUT 	(18h),A
+	CALL	WAIT5
+	JR  	H0475
+H0499:
+	LD  	E,(HL)
+	INC 	HL
+	LD  	BC,0000h
+	JP  	H0555
+;
+; for character (mono) mode
+;
+H04A1:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H04A1	;loop until FIFO parm buffer empty
+	LD  	A,49h
+	OUT 	(39h),A	;specify cursor position
+	XOR 	A
+	OUT 	(38h),A	;word address = 0000
+	OUT 	(38h),A
+	LD  	B,04h	;loop 4 times
+H04B4:
+	LD  	HL,03FFFh	;# of RMW cycles
+	LD  	A,4Ch
+	OUT 	(39h),A	;figure drawing parms
+	LD  	A,02h
+	OUT 	(38h),A	;character display mode
+	LD  	A,L
+	OUT 	(38h),A	;DC drawing parm low
+	LD  	A,H
+	OUT 	(38h),A	;DC drawing parm high
+	LD  	A,4Ah
+	OUT 	(39h),A	;mask register load
+	LD  	A,0FFh
+	OUT 	(38h),A	;mask = FFFF
+	OUT 	(38h),A
+	LD  	A,20h	;write data into display memory
+	OUT 	(39h),A	;word replace with pattern
+	XOR 	A
+	OUT 	(38h),A	;word = 0000
+	OUT 	(38h),A
+H04D8:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H04D8	;loop until FIFO parm buffer is empty
+	DJNZ	H04B4	;repeat 4 times
+	JP	(IX)
+;
+; for graphics (color) mode
+;
+;initialize/clear color memory bank for color in acc
+;port 2D = color control register:
+;1=blue 2=green 4=red
+;
+H04E4:
+	OUT 	(2Dh),A	;select color memory bank
+H04E6:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H04E6	;loop until FIFO parm buffer is empty
+	LD  	A,49h
+	OUT 	(39h),A	;specify cursor position
+	XOR 	A
+	OUT 	(38h),A	;word address = 0000
+	OUT 	(38h),A
+	OUT 	(38h),A	;dot address = 00
+	LD  	A,4Ah
+	OUT 	(39h),A	;mask register load
+	LD  	A,0FFh
+	OUT 	(38h),A	;mask = FFFF
+	OUT 	(38h),A
+H0503:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0503	;loop until FIFO parm buffer empty
+	LD  	A,78h
+	OUT 	(39h),A	;PRAM load command (start addr = 8)
+	LD  	B,08h
+	LD  	A,0FFh
+H0513:
+	OUT 	(38h),A	;PRAM address 8-15 = FFh
+	DJNZ	H0513
+H0517:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0517	;loop until FIFO parm buffer is empty
+	LD  	A,4Ch
+	OUT 	(39h),A	;figure drawing parms
+	LD  	A,10h
+	OUT 	(38h),A	;graphics character draw mode
+	LD  	BC,0027h	;# of RMW cycles
+	LD  	A,C
+	OUT 	(38h),A	;DC drawing parm low
+	LD  	A,B
+	OUT 	(38h),A	;dc drawing parm high
+	LD  	BC,0668h	;D drawing parm
+	LD  	A,C
+	OUT 	(38h),A
+	LD  	A,B
+	OUT 	(38h),A
+	LD  	A,22h
+	OUT 	(39h),A	;write data into display memory (reset to 0)
+	LD  	A,68h
+	OUT 	(39h),A	;execute graphics fill pattern
+	LD  	A,49h
+	OUT 	(39h),A	;specify cursor position
+	XOR 	A
+	OUT 	(38h),A	;word address = 0000
+	OUT 	(38h),A
+	OUT 	(38h),A	;dot address = 00
+H054C:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H054C	;loop until FIFO parm buffer is empty
+	JP  	(HL)
+;
+H0555:
+	IN  	A,(2Ch)
+	AND 	01h	;0 = mono 1 = color
+	JR  	NZ,H059A	;if color, return to IX caller
+;
+; for character (mono) mode
+; print message (HL) to display
+;
+H055B:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H055B	;loop until FIFO parm buffer empty
+H0563:
+	LD  	A,49h
+	OUT 	(39h),A	;specify cursor position
+	LD  	A,C
+	OUT 	(38h),A	;BC = word address
+	LD  	A,B
+	OUT 	(38h),A
+	LD  	A,4Ah
+	OUT 	(39h),A	;mask register load
+	LD  	A,0FFh
+	OUT 	(38h),A	;mask = FFFF
+	LD  	A,0FFh
+	OUT 	(38h),A
+H0579:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H0579	;loop until FIFO parm buffer empty
+	LD  	A,20h	;write data into display memory
+	OUT 	(39h),A	;word replace with pattern
+	LD  	A,(HL)
+	OUT 	(38h),A	;word 00 (M)
+	LD  	A,00h
+	OUT 	(38h),A
+	INC 	BC	;cursor position
+	INC 	HL	;next character in message
+H058E:
+	IN  	A,(38h)
+	AND 	06h	;FIFO state
+	XOR 	04h
+	JR  	NZ,H058E	;loop until parm buffer empty
+	DEC 	E	;character counter of message
+	JP  	NZ,H0563
+H059A:
+	JP  	(IX)
+;
+; loop until FDD data register ready for command
+;
+; port 34h = upd765 main status register
+;
+H059C:
+	OUT 	(30h),A	;turn on FDD motor
+	IN  	A,(34h)
+	AND 	10h
+	JR  	NZ,H059C	;loop until DDC ready
+	IN  	A,(34h)
+	AND 	0Fh
+	JR  	NZ,H059C	;loop until device ready
+	RET
+;
+; loop until FDD data port is ready for an OUT instruction
+;
+H05AB:
+	IN  	A,(34h)
+	BIT 	7,A
+	JR  	Z,H05AB	;loop until data register is ready
+	BIT 	6,A
+	JR  	NZ,H05AB	;loop until direction is processor to data reg
+	RET
+;
+; loop until FDD data port is ready for an IN instruction
+;
+H05B6:
+	IN  	A,(34h)
+	BIT 	7,A
+	JR  	Z,H05B6	;loop until data register is ready
+	BIT 	6,A
+	JR  	Z,H05B6	;loop until direction is data reg to processor
+	RET
+;
+;return drive HFC00+1 ready status. NZ if ready.
+;
+DRDY:
+H05C1:
+	CALL	H059C	;status = ready for command
+	LD  	A,04h
+	OUT 	(35h),A	;sense drive status
+	CALL	H05AB	;ready for output
+	LD  	A,(HFC00+1)	;drive#
+	OUT 	(35h),A
+	CALL	H05B6	;ready for input
+	IN  	A,(35h)
+	AND 	20h	;ready bit
+	RET
+;
+;execute FDD seek command
+;
+H05D8:
+	PUSH	AF
+	PUSH	BC
+	DI
+	LD  	A,0Fh
+	LD  	(HFC00),A
+	LD  	B,03h
+	JR  	H05EE
+;
+;execute FDD recalibrate command
+;
+H05E4:
+	PUSH	AF
+	PUSH	BC
+	DI
+	LD  	A,07h
+	LD  	(HFC00),A
+	LD  	B,02h
+H05EE:
+	CALL	H0607
+	EI
+H05F2:
+	LD  	A,(HFC00+19)
+	BIT 	6,A
+	JR  	NZ,H05F2		;loop until command completed
+	LD  	A,(HFC00+12)
+	BIT 	6,A
+	JR  	NZ,H0601
+	XOR 	A
+H0601:
+	LD  	(HFC00+20),A	;=0 if successful
+	POP 	BC
+	POP 	AF
+	RET
+;
+;execute FDD command from HFC00 buffer. B = # of command parms.
+;
+H0607:
+	CALL	H05C1		;drive ready?
+	JR  	Z,H0607		;loop until drive ready
+	CALL	H059C		;status = ready for command
+	PUSH	HL
+	LD  	HL,HFC00		;command parm buffer
+H0613:
+	CALL	H05AB		;ready for output
+	LD  	A,(HL)
+	OUT 	(35h),A
+	INC 	HL
+	DJNZ	H0613
+	LD  	HL,HFC00+19
+	SET 	6,(HL)		;flag as command ready for IRQ execution
+	POP 	HL
+	RET
+;
+;read FDD into F000-FBFF
+;
+H0623:
+	DI
+	PUSH	HL
+	PUSH	DE
+	PUSH	BC
+;
+;DMA FDD CH0 single increment write non-auto
+;
+	LD  	C,44h		;DMA mode
+	LD  	B,60h		;DMA status
+	CALL	H064C		;set FDD DMA parms to load to F000-FBFF
+	LD  	C,46h		;read MFM data
+	LD  	A,C
+	LD  	(HFC00),A
+	LD  	B,09h		;9 parm bytes
+	CALL	H0607
+	EI
+H063A:
+	LD  	A,(HFC00+19)
+	BIT 	6,A
+	JR  	NZ,H063A		;wait for command completion during IRQ
+	LD  	A,(HFC00+12)	;sector ID after execution
+	AND 	0C0h
+	CP  	40h		;nz if all 12 sectors read ok
+	POP 	BC
+	POP 	DE
+	POP 	HL
+	RET
+;
+;on entry: B = status reg   C = DMA mode
+;          HFC00+9     = # of 256 byte pages to load
+;          HFC00+10,11 = load address
+;
+H064C:
+	PUSH	AF
+	XOR 	A
+	OUT 	(4Dh),A		;clear temp reg
+	LD  	A,C
+	OUT 	(4Bh),A		;DMA mode
+	LD  	A,(HFC00+10)
+	OUT 	(40h),A		;FDD DMA CH0 base address (F000h) load address
+	LD  	A,(HFC00+11)
+	OUT 	(40h),A
+	LD  	A,0FFh
+	OUT 	(41h),A		;FDD DMA CH0 word address low
+	LD  	A,(HFC00+9)		;address high (C0h)
+	DEC 	A
+	OUT 	(41h),A		;FDD DMA CH0 word address (0BFFh) length of load
+	LD  	A,B
+	OUT 	(48h),A		;DMA status register
+	LD  	A,0Eh
+	OUT 	(4Fh),A		;mask = 01001111
+	POP 	AF
+	RET
+
+; Hard Drive Routines (Compact Flash)
+CFINIT:
+	LD  	B,20
+X800BH:
+	PUSH	BC
+	LD  	A,10100000B
+	OUT 	(CFSDH),A
+	LD  	B,A
+	IN  	A,(CFSDH)
+	CP  	B
+	JR  	Z,X8022H
+	CALL	WAIT5
+	POP 	BC
+	DJNZ	X800BH
+	LD  	A,2	; Error 2 return
+	RET
+
+X8022H:
+	POP 	BC
+	LD  	B,40
+X8025H:
+	PUSH	BC
+	IN  	A,(CFSTA)
+	BIT 	6,A
+	JR  	NZ,X8035H
+	CALL	WAIT5
+	POP 	BC
+	DJNZ	X8025H
+	LD  	A,1	; Error 1 return
+	RET
+
+X8035H:
+	POP 	BC
+	LD  	A,1                      ; Feature 8-bit mode
+	OUT 	(CFFTR),A                    ; Store A in feature register (0x81)
+	LD  	A,0EFH                   ; Set Feature command
+	OUT 	(CFCMD),A                    ; Write A to command register (0x87)
+	CALL	NBSY                     ; Wait till not busy
+	XOR 	A                        ; Successful return
+	RET
+
+;---------------------------------------------------
+; Read first sector (MBR)
+; On entry DE -> DMA BUFFER
+; Returns A = 0 if OK or A = 1 if failed
+;---------------------------------------------------
+RDMBR:
+	LD  	B,10		; number of retries
+X803EH:
+	PUSH	BC
+	LD  	A,0
+	LD  	(X7003H),A	; read sector 1
+	LD  	HL,0
+	CALL	RDSECT	; Read HD Sector
+	POP 	BC
+	RET 	Z	; Read OK return Z
+	LD  	DE,(X7004H)	; recover -> DMA BUFFER
+	DJNZ	X803EH
+	AND 	A		; Return NZ
+	RET			; (a = 1)
+
+; On entry DE -> DMA BUFFER
+;	   B = number of sectors to read
+;	   C = Head
+;	   H = C8-9, S0-5
+;	   L = C0-7
+; Returns A = 0 if OK or A = 1 if failed
+;
+CFREAD:
+	LD  	A,H
+	AND 	00111111b	; sectors 1 tru 63
+	DEC 	a		; make base 0
+	LD  	(X7003H),A
+	LD  	A,H
+	AND 	11000000b
+	RLCA
+	RLCA
+	LD  	H,A
+	ADD 	HL,HL
+	ADD 	HL,HL
+	LD  	A,B
+	LD  	B,0
+	ADD 	HL,BC
+	LD  	B,A		; number of sectors to transfer
+X8068H:
+	PUSH	BC
+	LD  	B,10
+X806BH:
+	PUSH	BC
+	CALL	RDSECT	; Read HD
+	POP 	BC
+	JR  	Z,X807CH
+	LD  	DE,(X7004H)	; recover -> DMA BUFFER
+	LD  	HL,(X7001H)	; recover ->
+	DJNZ	X806BH
+	AND 	A
+X807CH:
+	POP 	BC		; DE -> DMA BUFFER + 1 sector
+	RET 	NZ	; Failed error return A = 1
+	LD  	A,(X7003H)
+	INC 	A
+	LD  	(X7003H),A	; increment sector number
+	LD  	HL,(X7001H)	; recover ->
+	DJNZ	X8068H
+	XOR 	A
+	RET
+
+;---------------------------------------------------
+; Read HARD DISK
+; On Entry: DE -> DMA BUFFER
+;           HL -> Cylinder / Head (C[11-2], H[1-0])
+;	    (7003) -> sector number (base 0)
+; On Return:
+;	(7001) = HL on entry
+;	(7004) = DE on entry
+;	    DE -> DMA BUFFER + 512 bytes
+;	     A = bit 0 of port (87H) before transfer
+;---------------------------------------------------
+RDSECT:
+	LD  	(X7001H),HL
+	LD  	(X7004H),DE
+	CALL	SETLBA
+	LD  	A,00100000B
+	OUT 	(CFCMD),A
+
+	LD  	HL,(X7004H)
+	LD  	BC,0 + CFDAT
+X80A4H:
+	CALL	NBSY
+	INIR
+	INIR			; Read 512 bytes
+	EX  	DE,HL
+	AND 	1
+	RET
+
+;---------------------------------------------------
+; On Entry: (7001) -> word
+;	    (7000) -> byte (= 0 for read)
+; Ouputs:
+;	    Bits from (7000) & (7001) -> port (86h)
+;	    (7003) -> port (83h)
+;	    Bits from (7001) & (7002) -> port (84h)
+;	    Bits from (7001) & (7002) -> port (85h)
+;	    01110000b to port (87h)
+; On Return:
+;	    <A> = input from port (87h) with bit 7 = 0
+;---------------------------------------------------
+SETLBA:
+	LD  	A,10100000B
+	OUT 	(CFSDH),A
+	LD  	B,A
+	CPL
+	OUT 	(CFCLO),A
+	IN  	A,(CFSDH)
+	CP  	B
+	JP  	NZ,SETLBA
+	IN  	A,(CFSTA)
+	AND 	11000000b
+	CP  	01000000b
+	JP  	NZ,SETLBA
+
+	LD  	HL,(X7001H)
+	XOR 	A
+	OR  	11100000B
+	AND 	0F0H		; Clear high bits of LBA address
+	OUT 	(CFSDH),A
+	LD  	A,H
+	AND 	00FH
+	LD  	H,A
+	ADD 	HL,HL
+	ADD 	HL,HL
+	ADD 	HL,HL
+	ADD 	HL,HL
+	LD  	A,(X7003H)
+	AND 	00FH
+	ADD 	A,L
+	OUT 	(CFSEC),A
+	LD  	A,H
+	OUT 	(CFCLO),A
+	XOR 	A
+	OUT 	(CFCHI),A
+	INC 	A
+	OUT 	(CFCNT),A
+X810AH:
+	IN  	A,(CFSTA)
+	AND 	A
+	JP  	M,X810AH
+	RET
+
+;
+;keyboard IRQ handler
+;
+H0670:
+	PUSH	AF
+	IN  	A,(12h)		;keyboard status
+	LD  	(HFC00+22),A
+	BIT 	0,A
+	JR  	Z,H0688		;character not available
+	LD  	A,01h
+	OUT 	(12h),A		;set control reg 1
+	IN  	A,(12h)		;read status reg 1
+	LD  	(HFC00+23),A
+	IN  	A,(10h)		;keyboard data
+	LD  	(HFC00+24),A
+H0688:
+	LD  	A,(HFC00+22)
+	BIT 	2,A
+	JR  	NZ,H0697		;taken if transmit buffer empty
+	LD  	A,28h
+	OUT 	(12h),A		;reset pending transmit IRQ
+	XOR 	A
+	LD  	(HFC00+25),A
+H0697:
+	LD  	A,30h
+	OUT 	(12h),A		;enable error checking
+	LD  	A,38h
+	OUT 	(12h),A		;7201 channel A end of interrupt
+	LD  	A,20h
+	OUT 	(08h),A		;set 8259A end of interrupt
+	POP 	AF
+	EI
+	RETI
+;
+;FDD IRQ handler. execute command in HFC00 buffer.
+;
+H06A7:
+	PUSH	HL
+	PUSH	BC
+	PUSH	AF
+	LD  	A,(HFC00)
+	OR  	A
+	JR  	Z,H06FD		;taken if reset command
+	IN  	A,(34h)		;FDD status
+	BIT 	5,A
+	JR  	NZ,H06D8		;result not ready
+	BIT 	4,A
+	JR  	NZ,H06E4		;valid FDD command has been given
+	LD  	A,08h
+	OUT 	(35h),A		;sense interrupt status
+	CALL	H05B6		;ready for input
+	IN  	A,(35h)
+	LD  	(HFC00+12),A	;status reg 0
+	CALL	H05B6		;ready for input
+	IN  	A,(35h)
+	LD  	(HFC00+15),A	;present track#
+	LD  	A,(HFC00+12)	;status reg 0
+	RLCA
+	JR  	C,H06FD		;command never started or got interrupted
+	AND 	40h
+	JR  	NZ,H06F8		;abnormal termination of command
+H06D8:
+	LD  	A,20h
+	OUT 	(08h),A		;set 8259A end of interrupt
+	POP 	AF
+	POP 	BC
+	POP 	BC
+	POP 	HL
+	LD  	HL,(HFC00+33)	;loop back to H0418 to retry
+	JP  	(HL)
+;
+;read 7 byte results data into HFC00+12 to HFC00+18
+;
+H06E4:
+	XOR 	A
+	OUT 	(4Dh),A		;clear DMA1 temp reg
+	CPL
+	OUT 	(4Fh),A		;DMA1 mask = FF
+	LD  	B,07h
+	LD  	HL,HFC00+12
+H06EF:
+	CALL	H05B6		;ready for input
+	IN  	A,(35h)
+	LD  	(HL),A
+	INC 	HL
+	DJNZ	H06EF		;read results data into HFC00+12 to HFC00+18
+H06F8:
+	LD  	HL,HFC00+19
+	RES 	6,(HL)		;flag as IRQ command complete
+H06FD:
+	LD  	A,20h
+	OUT 	(08h),A		;set 8259A end of interrupt
+	POP 	AF
+	POP 	BC
+	POP 	HL
+	EI
+	RETI			;end of FDD IRQ handler
+;
+H0707:
+	HALT			;unsupported IRQ jumps here
+;
+H0708:
+	DB 0Fh
+	DB 'INSERT DISKETTE'
+H0718:
+	DB 24h
+	DB 'DIAGNOSTIC CODE  0001           0.06'
+H073D:
+	DB 24h
+	DB 'DIAGNOSTIC CODE  0002           0.06'
+H0762:
+	DB 0Fh
+	DB '               '
+H0772:
+	DB 00h
+	DB 0FFh
+
+WAIT5:
+	LD  	B,05h		;delay loop
+	LD  	DE,0FFFFh
+H047E:
+	LD  	HL,39DEh
+H0481:
+	ADD 	HL,DE
+	JR  	C,H0481
+	DJNZ	H047E
+	RET
+;
+; 0780h = 8259 master IRQ table
+; all unsupported except keyboard and FDD
+;
+	NOP
+	JP  	H0707	;IRQ0
+	NOP
+	JP  	H0707	;IRQ1
+	NOP
+	JP  	H0707	;IRQ2
+	NOP
+	JP  	H0707	;IRQ3
+	NOP
+	JP  	H0670	;keyboard IRQ4
+	NOP
+	JP  	H0707	;IRQ5
+	NOP
+	JP  	H06A7	;FDD IRQ6
+	NOP
+	NOP
+	NOP
+	NOP
+;
+; 07A0h = 8259 slave IRQ table
+; all unsupported
+;
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+	NOP
+	JP  	H0707
+;
+;	init data for 7201 keyboard serial interface
+;
+H07C0:
+	DB 18h	;channel reset
+	DB 14h	;reset external status interrupt. set control reg 4
+	DB 37h	;enable parity, even parity, async 1 stop bit
+	DB 03h	;set control reg 3 (receiver control)
+	DB 0E1h	;receiver enabled 8 bits/char, DCD enabled
+	DB 05h	;set control reg 5 (transmitter control)
+	DB 0EAh	;transmitter enabled 8 bits/char, DTR active, no RTS
+	DB 02h	;set control reg 2 (processor/bus interface control)
+	DB 00h	;??? unlikely all parms 0 ???
+	DB 01h	;set control reg 1 (interrupt control)
+	DB 10h	;interrupt and issue DMA request on all received chars
+;
+;H07CB = 8 sync parms for monochrome
+;
+;mixed graphics and character display
+;non-interlaced
+;dynamic ram - refresh
+;draw during retrace
+;80 display words/line
+;vsync width = 16
+;hsync width = 3
+;hfrontporch = 7
+;hbackporch = 19
+;vfrontporch = 1
+;vbackporch = 4
+;display lines/field = 400
+;
+H07CB:
+	DB 14h,4Eh,02h,1Ah,12h
+	DB 01h,90h,11h
+;
+;H07D3 = 8 sync parms for color
+;
+;graphics display
+;non-interlaced
+;dynamic ram - refresh
+;draw during active display
+;40 display words/line
+;vsync width = 9
+;hsync width = 4
+;hfrontporch = 5
+;hbackporch = 5
+;vfrontporch = 7
+;vbackporch = 25
+;display lines/field = 400
+;
+H07D3:
+	DB 06h,26h,23h,11h,04h,07h,90h,65h
+;
+	DB 0E8h,0E4h,0C9h,0C3h,0C8h,0C9h,40h,0E4h
+	DB 0E2h,0C8h,0C9h,0E8h,0C1h,0D4h,0C1h,40h
+	DB 0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh
+
+NBSY:
+	IN  	A,(CFSTA)
+	OR  	A
+	JP  	M,NBSY
+	RET
+
+;
+	JP  	H05D8	;FDD seek
+	JP  	H0623	;FDD load boot0
+
+	END
