@@ -1,36 +1,33 @@
-Z80ASM=z80asm
+# Build BIOS 2.20 patches using zmac
+ZMAC := ../../../tools/bin/zmac
+BUILD_DIR := ../../../build/bios/2.20
 
+PATCHES := bios-ba93-patch.cim bios-bab6-patch.cim bios-bc35-patch.cim \
+           bios-bc81-patch.cim bios-bcef-patch.cim bios-f736-patch.cim
 
-all: patch-bios
+.PHONY: all clean
 
-bios-ba93-patch.bin: bios-ba93-patch.asm
-	$(Z80ASM) -o $@ $^
+all: $(BUILD_DIR)/cpm2.sys
 
-bios-bab6-patch.bin: bios-bab6-patch.asm
-	$(Z80ASM) -o $@ $^
+# Build individual patch binaries
+$(BUILD_DIR)/patches/%.cim: %.asm
+	@mkdir -p $(dir $@)
+	@$(ZMAC) -o $@ $< > /dev/null 2>&1
 
-bios-bc35-patch.bin: bios-bc35-patch.asm
-	$(Z80ASM) -o $@ $^
+# Apply all patches to cpm2.sys
+$(BUILD_DIR)/cpm2.sys: $(addprefix $(BUILD_DIR)/patches/,$(PATCHES))
+	@echo "Patching BIOS 2.20..."
+	@mkdir -p $(BUILD_DIR)
+	@cp ../cpm2.sys $@
+	@dd if=$(BUILD_DIR)/patches/bios-ba93-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xba93+256))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-bab6-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbab6+256))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-bc35-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbc35+256))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-bc81-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbc81+256))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-bcef-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbcef+256))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-f736-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xc8a9))) 2>/dev/null
+	@echo "BIOS 2.20 patching complete"
 
-bios-bc81-patch.bin: bios-bc81-patch.asm
-	$(Z80ASM) -o $@ $^
-
-bios-bcef-patch.bin: bios-bcef-patch.asm
-	$(Z80ASM) -o $@ $^
-
-bios-f736-patch.bin: bios-f736-patch.asm
-	$(Z80ASM) -o $@ $^
-
-patch-bios: bios-ba93-patch.bin bios-bab6-patch.bin bios-bc35-patch.bin bios-bc81-patch.bin bios-bcef-patch.bin bios-f736-patch.bin
-	cp ../cpm2.sys .
-	dd if=bios-ba93-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xba93+256)))
-	dd if=bios-bab6-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbab6+256)))
-	dd if=bios-bc35-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbc35+256)))
-	dd if=bios-bc81-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbc81+256)))
-	dd if=bios-bcef-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xbcef+256)))
-	dd if=bios-f736-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xc8a9)))
-
-.PHONY: clean
 clean:
-	@rm -rf *.bin
-	@rm -rf *.sys
+	@echo "Cleaning BIOS 2.20 builds..."
+	@rm -rf $(BUILD_DIR)
+	@echo "Clean complete"

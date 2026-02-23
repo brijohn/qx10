@@ -1,52 +1,43 @@
-Z80ASM=z80asm
+# Build BIOS 2.27 patches using zmac
+ZMAC := ../../../tools/bin/zmac
+BUILD_DIR := ../../../build/bios/2.27
 
+BIOS_PATCHES := bios-99b1-patch.cim bios-9a5f-patch.cim bios-9f2b-patch.cim
 
-all: patch-bios patch-hdpart
+HDPART_PATCHES := hdpart-2c61-patch.cim hdpart-2cb5-patch.cim \
+                  hdpart-2d35-patch.cim hdpart-3034-patch.cim
 
-bios-99b1-patch.bin: bios-99b1-patch.asm
-	$(Z80ASM) -o $@ $^
+.PHONY: all clean
 
-bios-9a5f-patch.bin: bios-9a5f-patch.asm
-	$(Z80ASM) -o $@ $^
+all: $(BUILD_DIR)/cpm2.sys $(BUILD_DIR)/hdpart.com
 
-bios-9ae1-patch.bin: bios-9ae1-patch.asm
-	$(Z80ASM) -o $@ $^
+# Build individual patch binaries
+$(BUILD_DIR)/patches/%.cim: %.asm
+	@mkdir -p $(dir $@)
+	@$(ZMAC) -o $@ $< > /dev/null 2>&1
 
-bios-9f2b-patch.bin: bios-9f2b-patch.asm
-	$(Z80ASM) -o $@ $^
+# Apply BIOS patches to cpm2.sys
+$(BUILD_DIR)/cpm2.sys: $(addprefix $(BUILD_DIR)/patches/,$(BIOS_PATCHES))
+	@echo "Patching BIOS 2.27..."
+	@mkdir -p $(BUILD_DIR)
+	@cp ../cpm2.sys $@
+	@dd if=$(BUILD_DIR)/patches/bios-99b1-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x99b1+5888))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-9a5f-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x9a5f+5888))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/bios-9f2b-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x9f2b+5888))) 2>/dev/null
+	@echo "BIOS 2.27 patching complete"
 
-bios-f708-patch.bin: bios-f708-patch.asm
-	$(Z80ASM) -o $@ $^
+# Apply HDD partition patches to hdpart.com
+$(BUILD_DIR)/hdpart.com: $(addprefix $(BUILD_DIR)/patches/,$(HDPART_PATCHES))
+	@echo "Patching hdpart.com..."
+	@mkdir -p $(BUILD_DIR)
+	@cp ../hdpart.com $@
+	@dd if=$(BUILD_DIR)/patches/hdpart-2c61-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2c61-0x100))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/hdpart-2cb5-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2cb5-0x100))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/hdpart-2d35-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2d35-0x100))) 2>/dev/null
+	@dd if=$(BUILD_DIR)/patches/hdpart-3034-patch.cim of=$@ conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x3034-0x100))) 2>/dev/null
+	@echo "hdpart.com patching complete"
 
-patch-bios: bios-99b1-patch.bin bios-9a5f-patch.bin bios-9ae1-patch.bin bios-9f2b-patch.bin bios-f708-patch.bin
-	cp ../cpm2.sys .
-	dd if=bios-99b1-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x99b1+5888)))
-	dd if=bios-9a5f-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x9a5f+5888)))
-#	dd if=bios-9ae1-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x9ae1+5888)))
-	dd if=bios-9f2b-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x9f2b+5888)))
-#	dd if=bios-f708-patch.bin of=cpm2.sys conv=notrunc bs=1 seek=$(shell printf "%d" $$((0xc358)))
-
-hdpart-3034-patch.bin: hdpart-3034-patch.asm
-	$(Z80ASM) -o $@ $^
-
-hdpart-2c61-patch.bin: hdpart-2c61-patch.asm
-	$(Z80ASM) -o $@ $^
-
-hdpart-2cb5-patch.bin: hdpart-2cb5-patch.asm
-	$(Z80ASM) -o $@ $^
-
-hdpart-2d35-patch.bin: hdpart-2d35-patch.asm
-	$(Z80ASM) -o $@ $^
-
-patch-hdpart: hdpart-3034-patch.bin hdpart-2c61-patch.bin hdpart-2cb5-patch.bin hdpart-2d35-patch.bin
-	cp ../hdpart.com .
-	dd if=hdpart-2c61-patch.bin of=hdpart.com conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2c61-0x100)))
-	dd if=hdpart-2cb5-patch.bin of=hdpart.com conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2cb5-0x100)))
-	dd if=hdpart-2d35-patch.bin of=hdpart.com conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x2d35-0x100)))
-	dd if=hdpart-3034-patch.bin of=hdpart.com conv=notrunc bs=1 seek=$(shell printf "%d" $$((0x3034-0x100)))
-
-.PHONY: clean
 clean:
-	@rm -rf *.bin
-	@rm -rf *.com
-	@rm -rf *.sys
+	@echo "Cleaning BIOS 2.27 builds..."
+	@rm -rf $(BUILD_DIR)
+	@echo "Clean complete"

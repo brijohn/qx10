@@ -1,4 +1,4 @@
-org 02cb5h
+	org 02cb5h
 
 include "bios-ioports.inc"
 

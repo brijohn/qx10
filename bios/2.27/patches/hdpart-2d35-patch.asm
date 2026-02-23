@@ -1,4 +1,4 @@
-org 02d35h
+	org 02d35h
 
 include "bios-ioports.inc"
 
