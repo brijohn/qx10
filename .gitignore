@@ -4,3 +4,64 @@ fp-info-cache
 *.lst
 *.bak
 *backups
+tags
+
+# Compiled object files and libraries
+*.o
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+
+# Autotools generated files
+config.h
+config.log
+config.status
+config.cache
+autom4te.cache/
+.deps/
+.libs/
+libtool
+stamp-h1
+
+# Tool build stamps
+tools/.libdsk_built
+tools/.zmac_built
+tools/.ld80_built
+tools/.cpmtools_built
+
+# Tool build outputs
+tools/bin/
+tools/lib/
+tools/include/
+tools/share/
+
+# Built tool binaries
+tools/zmac/zmac
+tools/zmac/doc
+tools/zmac/doc.inl
+tools/ld80/ld80
+
+# cpmtools build artifacts
+tools/cpmtools-*/Makefile
+tools/cpmtools-*/cpmchattr
+tools/cpmtools-*/cpmchmod
+tools/cpmtools-*/cpmcp
+tools/cpmtools-*/cpmls
+tools/cpmtools-*/cpmrm
+tools/cpmtools-*/fsck.cpm
+tools/cpmtools-*/fsed.cpm
+tools/cpmtools-*/mkfs.cpm
+
+# libdsk build artifacts
+tools/libdsk-*/Makefile
+tools/libdsk-*/doc/Makefile
+tools/libdsk-*/include/Makefile
+tools/libdsk-*/lib/Makefile
+tools/libdsk-*/man/Makefile
+tools/libdsk-*/tools/Makefile
+tools/libdsk-*/lib/uk_co_demon_seasip_libdsk_*.h
+
+# Build outputs
+build/

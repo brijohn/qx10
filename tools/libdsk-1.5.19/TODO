@@ -1,0 +1,141 @@
+TO BE DONE in LibDSK 1.5.x:
+
+- dskparse: Need to update the COM wrapper to support diagnostic open.
+- dskparse: Need to update build scripts for DOS and Windows.
+
+- [Apple] Improve resource fork / MacBinary support in DC42 driver.
+- [QRST5] Reverse decompression of QRST5 file.
+
+- [Apple] Handle at least basic support of 400k and 800k MFS / HFS filesystems
+
+
+FUTURE LibDSK 1.9.x:
+
+- Redefine DSK_GEOMETRY (breaking change):
+
+
+	typedef struct dsk_zone
+	{
+		dsk_pcyl_t	dz_cylfrom;	/* Cylinder / head ranges */
+		dsk_pcyl_t	dz_cylto;	/* Zone applies if */
+		dsk_phead_t	dz_headfrom;	/* cyl / head fall within */
+		dsk_phead_t	dz_headto;	/* the range */
+
+		dsk_psect_t	dz_sectors;
+		dsk_psect_t	dz_secbase;
+		size_t		dz_secsize;
+		dsk_rate_t	dz_datarate;
+		dsk_gap_t	dz_rwgap;
+		dsk_gap_t	dz_fmtgap;
+		dsk_recmode_t	dz_recmode;	
+		dsk_flags_t	dz_flags;	/* Formerly part of recmode */
+		int		dz_nomulti;
+		int		dz_noskip;	
+	} DSK_ZONE;
+	
+
+	typedef struct struct dsk_geometry
+	{
+		dsk_sides_t	dg_sidedness;
+		dsk_pcyl_t	dg_cylinders;
+		dsk_phead_t	dg_heads;
+		int		dg_zonecount;
+		DSK_ZONE	dg_zone[1];
+	} DSK_GEOMETRY;
+
+	will need:
+		dsk_geometry_alloc(int zones);
+		dsk_geometry_clone()
+		Serialisation format for GEO2 block in LDBS
+
+	new ini file format:
+
+	[Type]
+	Description = foo
+	Sidedness = Alt
+	Cylinders = 40
+	Heads = 2
+	Zones = 2
+	Sectors[0] = 8	# Sectors[0]= abbreviates to Sectors=
+	Sectors[1] = 9
+
+	etc.
+
+	
+
+
+- [CopyQM] Use real CopyQM on real hardware to image some DOS-format
+  floppies so I can see the BPB.
+
+- [CPCEMU] Debug the new LDBS-style driver:
+	* Need to try on a few more test cases. extextdsk tests all seem
+	 to pass; would be nice to try some old-style DSKs too.
+
+
+- The cpcemu driver contains a chunk of code to deal with multitrack reads
+ and writes. Write some test cases to exercise it, and check that the LDBS 
+ common driver behaves the same way.
+
+- Partition support.
+	It looks as if the way to do it is to have a filter driver.
+	Something like 
+		dsk_err_t dsk_part_open(DSK_PDRIVER *guest,
+					DSK_PDRIVER host, 
+					DSK_GEOMETRY *dg,
+					int npartition);
+
+	This requires:
+		- Reference-counting on the host. Either fail dsk_close()
+		 if its refcount is > 1, or let it succeed silently.
+	
+	Once dsk_part_open() is in place, we can also allow partitions to
+	be passed as filenames:
+
+		partition:n,filename
+
+	which will have a dsk_open that:
+
+		* passes filename to inner dsk_open
+		* do a dsk_getgeom
+		* pass the resulting parameters to dsk_part_open
+
+	Also: False partition (ie, add a partition table to an image)
+
+		dsk_err_t dsk_false_partition(DSK_PDRIVER *guest,
+					DSK_PDRIVER host,
+					DSK_GEOMETRY *dg,
+					unsigned char type);
+
+		with matching open-by-filename:
+
+		falsepart:n,filename
+
+	The alternative to a filter driver is dsk_option_set with a variable
+	of PARTITION, but that has certain problems (eg: you can't have
+	multiple partitions open at one time)
+
+	[nb: What sort of partition table do the likes of +3e use, because
+	 that's going to give all sorts more fun]
+
+* Weak-sector support is new and may be buggy.
+* Write more functions for dsktool.
+* The INT25/INT26 driver doesn't seem to work in a DJGPP compile; it fails
+ with error 0x701F.
+* The INT25/INT26 driver keeps spitting out diagnostic messages.
+
+* dskid doesn't work on a DFS .DSK file. Why? Because get_id doesn't fail?
+* Support for DMK file format.
+* Java support for the Reporter classes is buggy [seems to work now 11-5-2003]
+* Plugin architecture:
+	dsk_register_driver
+	dsk_register_compression
+	dsk_register_remote
+
+* Support remoting libdsk...
+	>> May need to write a PCW backend that dances on the controller
+	  rather than using decorum and the XBIOS.
+	>> May need to write a Win16 version of serslave.
+	>> May need to write a Win16 RPC client.
+
+* CopyQM: Compare to real BBC Master 512 disks 2-4.
+

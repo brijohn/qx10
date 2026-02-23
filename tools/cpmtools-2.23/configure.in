@@ -1,0 +1,103 @@
+AC_INIT(cpmfs.c)
+AC_CONFIG_HEADERS([config.h])
+AC_CANONICAL_HOST
+VERSION=2.23
+UPDATED='November 2, 2022'
+
+DEVICE="posix"
+TERM="curses"
+
+if test "$prefix" = NONE
+then
+  case $host in
+    *-linux-*)
+    ;;
+    *-cygwin-*)
+      CYGWIN=yes
+    ;;
+    *-pc-mingw32)
+      CFLAGS_LIBDSK=-DNOTWINDLL
+      MINGW32=yes
+    ;;
+  esac
+fi
+
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_CPP
+
+if test "$GCC" = yes
+then
+  CFLAGS="${CFLAGS} ${EXTRA_GCFLAGS}-pipe -Wall -Wextra -Wshadow -Wno-unused-parameter -Wunused -Wbad-function-cast -Wmissing-prototypes -Wstrict-prototypes -Wcast-align -Wcast-qual -Wpointer-arith -Wwrite-strings -Wmissing-declarations -Wnested-externs -Wundef -pedantic -fno-common"
+  LDFLAGS="${LDFLAGS} ${EXTRA_GLDFLAGS}-g"
+else
+  CFLAGS="${CFLAGS} ${EXTRA_CFLAGS}"
+  LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS}"
+fi
+
+DISKDEFS='${datarootdir}/diskdefs'
+
+AC_ARG_WITH(diskdefs,[  --with-diskdefs         Specify diskdefs location], 
+		[DISKDEFS="$withval"], [DISKDEFS="$DISKDEFS"])
+AC_ARG_WITH(defformat,[  --with-defformat        Specify default format (ibm-3740)], 
+		[DEFFORMAT="$withval"], [DEFFORMAT="ibm-3740"])
+AC_ARG_WITH(libdsk,   [  --with-libdsk           Specify path to libdsk library], 
+		[LIBDSK="$withval"], [LIBDSK=""])
+
+dnl Check for curses. If not found, don't build fsed.cpm
+dnl Try both curses and ncurses
+AC_CHECK_LIB(curses, printw, FSED_CPM=fsed.cpm LIBS="-lcurses $LIBS", FSED_CPM=)
+if test x"$FSED_CPM" = x""; then
+  AC_CHECK_LIB(ncurses, printw, FSED_CPM=fsed.cpm LIBS="-lncurses $LIBS", FSED_CPM=)
+  if test x"$FSED_CPM" != x""; then
+    AC_DEFINE(NEED_NCURSES)
+    AC_CHECK_HEADERS(ncurses/ncurses.h,have_ncurses_ncurses_h=yes)
+  fi
+fi
+
+dnl If using libdsk, check it's available. 
+if test "$LIBDSK" != ""; then
+  DEVICE="libdsk"
+  CPPFLAGS="$CPPFLAGS -I$LIBDSK/include"
+  CFLAGS="$CFLAGS -I$LIBDSK/include $CFLAGS_LIBDSK"
+  LDFLAGS="$LDFLAGS -L$LIBDSK/lib"
+  AC_CHECK_LIB(dsk, dsk_open)
+  AC_CHECK_HEADERS(libdsk.h, ,[echo "No libdsk.h - aborting"; exit 1])
+fi
+
+dnl Checks for header files.
+AC_CHECK_HEADERS(fcntl.h sys/types.h sys/stat.h limits.h unistd.h sys/utime.h utime.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_MODE_T
+AC_TYPE_OFF_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+AC_STRUCT_TM
+AC_EXEEXT
+AC_OBJEXT
+AC_SYS_LARGEFILE
+
+dnl add EXE extension to fsed.cpm
+if test x"$FSED_CPM" != x""; then
+  FSED_CPM="$FSED_CPM$EXEEXT"
+fi
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_FUNC_STRFTIME
+AC_CHECK_FUNCS(mktime strerror)
+
+AC_SUBST(LDLIBS)
+AC_SUBST(LDDEPS)
+AC_SUBST(DEVICE)
+eval DATADIR=$datadir
+AC_SUBST(DATADIR)
+AC_SUBST(DISKDEFS)
+AC_SUBST(DEFFORMAT)
+AC_SUBST(FSED_CPM)
+AC_SUBST(UPDATED)
+AC_CONFIG_FILES(Makefile cpm.5 cpmchattr.1 cpmchmod.1 cpmcp.1 cpmls.1 cpmrm.1 fsck.cpm.1 fsed.cpm.1 mkfs.cpm.1 diskdefs.5)
+AC_OUTPUT

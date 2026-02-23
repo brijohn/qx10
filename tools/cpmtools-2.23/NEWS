@@ -1,0 +1,12 @@
+Changes since 2.22:
+
+o  Use 16 bit block pointers for file systems > 256 blocks, not >= 256
+o  Translate CP/M file name character '/' to ',' for the host and back
+o  dirblks in Kaypro format fixed
+o  Misc fixes for directory listing
+o  Added bootsec diskdefs option
+o  Check Device_close return value
+o  Check for too small block number when reading file data
+o  Replaced obsolete macros in configure.in
+o  Cygwin/Windows support did not build any more and likely not for quite
+   some time, so it was removed.
