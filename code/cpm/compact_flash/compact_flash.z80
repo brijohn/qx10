@@ -1,12 +1,12 @@
 ; Compact Flash routines
 ;
 ; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
-PUBLIC   CFINIT
-PUBLIC   CFIDENT
-PUBLIC   CFSETCHS
-PUBLIC   CFREAD
-PUBLIC   CFWRITE
-EXTERN   PRINTSTRING, PRINTHEXBYTE
+	PUBLIC   CFINIT
+	PUBLIC   CFIDENT
+	PUBLIC   CFSETCHS
+	PUBLIC   CFREAD
+	PUBLIC   CFWRITE
+	EXTERN   PSTRING, PHEXBYTE
 
 WARMBOOT equ 0
 CFPORT   equ $D0
@@ -45,7 +45,7 @@ CFINIT:
 	RET
 NOCFCARD:
 	LD  HL, ERRNOCARD  ; No Card inserted error message
-	CALL PRINTSTRING   ; Print error message
+	CALL PSTRING       ; Print error message
 	JP WARMBOOT        ; Reload CCP
 
 ; Gets the identity sector from compact flash card
@@ -157,7 +157,7 @@ CFWAITRDY1:
 CFERROR:
 	IN  A, (CFREG1)
 	PUSH AF
-	CALL PRINTHEXBYTE
+	CALL PHEXBYTE
 	POP AF
 	BIT 0, A
 	JR  Z, CFERR2
@@ -184,9 +184,9 @@ CFERR7:
 	LD  HL, ERRBADBLOCK
 	JR  CFERRPRINT
 CFERRUNK:
-	LD  HL, ERRUNKNOWN 
+	LD  HL, ERRUNKNOWN
 CFERRPRINT:
-	CALL PRINTSTRING   ; Print Error Message
+	CALL PSTRING       ; Print Error Message
 	JP  WARMBOOT       ; Reload CCP
 
 ; Error messages

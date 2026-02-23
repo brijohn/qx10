@@ -1,13 +1,12 @@
 ; Program to detect and display Compact Flash identity info
 ;
 ; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
-ORG  $100
 
-EXTERN CFINIT
-EXTERN CFIDENT
-EXTERN PRINTSTRING, PRINTWORDSTRING, PRINTHEXWORD
+	EXTERN CFINIT
+	EXTERN CFIDENT
+	EXTERN PSTRING, PWORDSTRING, PHEXWORD
 
-JP MAIN
+	JP MAIN
 
 SERIAL:     DEFB "   Serial: ",0
 FIRMWARE:   DEFB " Firmware: ",0
@@ -27,56 +26,56 @@ MAIN:
 
 NEWLINE:
 	LD  HL, LFCR           ;
-	CALL PRINTSTRING       ; Print newline
+	CALL PSTRING           ; Print newline
 	RET
 
 PRINTIDENT:
 	; Print Serial Number
 	LD  HL, SERIAL
-	CALL PRINTSTRING       ; Print Serial label
+	CALL PSTRING           ; Print Serial label
 	LD  IX, BUFFER+20      ; Index of serial no in identity block
 	LD  B, 10              ; Serial no is 10 words long
-	CALL PRINTWORDSTRING   ; Print serial no
+	CALL PWORDSTRING       ; Print serial no
 	CALL NEWLINE           ; print newline
 	; Print Firmware Version
 	LD  HL, FIRMWARE
-	CALL PRINTSTRING       ; Print firmware label
+	CALL PSTRING           ; Print firmware label
 	LD  IX, BUFFER+46      ; Index of firmware rev in identity block
 	LD  B, 4               ; Firmware rev is 4 words long
-	CALL PRINTWORDSTRING   ; Print firmware rev
+	CALL PWORDSTRING       ; Print firmware rev
 	CALL NEWLINE           ; Print newline
 	; Print Model Name
 	LD  HL, MODEL
-	CALL PRINTSTRING       ; Print model label
+	CALL PSTRING           ; Print model label
 	LD  IX, BUFFER+54      ; Index of model no in identity block
 	LD  B, 20              ; Model no is 20 words long
-	CALL PRINTWORDSTRING   ; Print model no
+	CALL PWORDSTRING       ; Print model no
 	CALL NEWLINE           ; Print newline
 	; Print Cylinder Count
 	LD  HL, CYLINDERS
-	CALL PRINTSTRING       ; Print cylinders label
+	CALL PSTRING           ; Print cylinders label
 	LD HL, (BUFFER+2)      ; Load default cylinder count into HL
-	CALL PRINTHEXWORD      ; Print default cylinder count
+	CALL PHEXWORD          ; Print default cylinder count
 	CALL NEWLINE           ; Print newline
 	; Print Head Count
 	LD  HL, HEADS
-	CALL PRINTSTRING       ; Print heads label
+	CALL PSTRING           ; Print heads label
 	LD  HL, (BUFFER+6)     ; Load default head count into HL
-	CALL PRINTHEXWORD      ; Print default head count
+	CALL PHEXWORD          ; Print default head count
 	CALL NEWLINE           ; Print newline
 	; Print Sector Count
 	LD  HL, SECTORS
-	CALL PRINTSTRING       ; Print sectors label
+	CALL PSTRING           ; Print sectors label
 	LD  HL, (BUFFER+12)    ; Load default sector count into HL
-	CALL PRINTHEXWORD      ; Print default sector count
+	CALL PHEXWORD          ; Print default sector count
 	CALL NEWLINE           ; Print newline
 	; Print Max LBA
 	LD  HL, LBA
-	CALL PRINTSTRING       ; Print LBA label
+	CALL PSTRING           ; Print LBA label
 	LD  HL, (BUFFER+14)    ; Load default LBA (MSW) count into HL
-	CALL PRINTHEXWORD      ; Print default LBA (MSW) count
+	CALL PHEXWORD          ; Print default LBA (MSW) count
 	LD  HL, (BUFFER+16)    ; Load default LBA (LSW) count into HL
-	CALL PRINTHEXWORD      ; Print default LBA (LSW) count
+	CALL PHEXWORD          ; Print default LBA (LSW) count
 	CALL NEWLINE           ; Print newline
 	RET
 

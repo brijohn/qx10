@@ -1,17 +1,22 @@
-Z80ASM=z80asm
+# Build CP/M utilities using zmac
+ZMAC := ../../../tools/bin/zmac
+BUILD_DIR := ../../../build/apps
 
-all: cmosload.com cmosdump.com loadrom.com
+UTILITIES := cmosload.com cmosdump.com loadrom.com
 
-cmosload.com: cmosload.asm
-	$(Z80ASM) -o $@ $^
+.PHONY: all clean
 
-cmosdump.com: cmosdump.asm
-	$(Z80ASM) -o $@ $^
+all: $(addprefix $(BUILD_DIR)/,$(UTILITIES))
 
-loadrom.com: loadrom.asm
-	$(Z80ASM) -o $@ $^
+# Build .com files from .asm sources
+$(BUILD_DIR)/%.com: %.asm
+	@echo "Building $(@F)..."
+	@mkdir -p $(BUILD_DIR)
+	@$(ZMAC) -o $(BUILD_DIR)/$*.cim $< > /dev/null 2>&1
+	@mv $(BUILD_DIR)/$*.cim $@
+	@echo "$(@F) build complete"
 
-.PHONY: clean
 clean:
-	@rm -rf *.com
-
+	@echo "Cleaning utility builds..."
+	@rm -f $(addprefix $(BUILD_DIR)/,$(UTILITIES))
+	@echo "Clean complete"

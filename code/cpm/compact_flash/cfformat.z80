@@ -1,19 +1,17 @@
 ; Formats Compact Flash card
-; For use with version B2.20 only
 ;
 ; (c) Copyright 2020-2023 Brian Johnson <brijohn@gmail.com>
-ORG  $100
 
-EXTERN CFINIT
-EXTERN CFSETCHS
-EXTERN CFREAD
-EXTERN CFWRITE
-EXTERN PRINTSTRING, PRINTWORDSTRING, PRINTHEXWORD, PRINTHEXBYTE
+	EXTERN CFINIT
+	EXTERN CFSETCHS
+	EXTERN CFREAD
+	EXTERN CFWRITE
+	EXTERN PSTRING, PWORDSTRING, PHEXWORD, PHEXBYTE
 
 DIRSECTORS    equ  64   ; Native sectors
 SPT           equ  64   ; CPM sectors
 
-JP MAIN
+	JP MAIN
 
 PART1MSG:    DEFB "Formatting Partition 1", $0D, $0A, 0
 PART2MSG:    DEFB "Formatting Partition 2", $0D, $0A, 0
@@ -26,13 +24,13 @@ CR:          DEFB $0D, 0
 MAIN:
 	CALL DRIVEINIT
 	LD  HL, PART1MSG
-	CALL PRINTSTRING
+	CALL PSTRING
 	LD  HL, 2              ; start at track 2 of partition
 	LD  BC, (PART1OFF)     ; Start at CPM partition 1 offset
 	XOR A                  ; Start at CPM sector 0
 	CALL FORMAT            ; Format first partition
 	LD  HL, PART2MSG
-	CALL PRINTSTRING
+	CALL PSTRING
 	LD  HL, 2              ; start at track 2 of partition
 	LD  BC, (PART2OFF)     ; Start at CPM partition 2 offset
 	XOR A                  ; Start at CPM sector 0
@@ -43,19 +41,19 @@ MAIN:
 PRINTADDR:
 	PUSH AF
 	LD  HL, CR
-	CALL PRINTSTRING
+	CALL PSTRING
 	LD  HL, LBAMSG
-	CALL PRINTSTRING
+	CALL PSTRING
 	LD  A, (HEAD)
-	CALL PRINTHEXBYTE
+	CALL PHEXBYTE
 	LD  HL, (CYLINDER)
-	CALL PRINTHEXWORD
+	CALL PHEXWORD
 	LD  A, (SECTOR)
-	CALL PRINTHEXBYTE
+	CALL PHEXBYTE
 	LD  HL, STATUSMSG
-	CALL PRINTSTRING
+	CALL PSTRING
 	POP AF
-	CALL PRINTHEXBYTE
+	CALL PHEXBYTE
 	RET
 
 DRIVEINIT:
@@ -126,7 +124,7 @@ FOUNDPART:
 	RET
 EXIT_INIT:
 	LD  HL,NOPARTMSG
-	CALL PRINTSTRING
+	CALL PSTRING
 	JP  $0000
 
 ; Format partition
@@ -159,7 +157,7 @@ SKIPTRACKINC:
 	DEC D                  ; Decrement count of remaining sectors to write
 	JR  NZ, NEXTBLOCK      ; If not zero write next sector
 	LD  HL, LFCR
-	CALL PRINTSTRING       ; Print newline
+	CALL PSTRING           ; Print newline
 	RET
 
 ; Convert CPM track/sector to Sector Address values

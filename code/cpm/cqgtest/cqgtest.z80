@@ -56,14 +56,16 @@ WLOOP0:
 	CALL  PRINTHEXBYTE
 
 	PUSH  BC             ; Save the outer loop counter
-	LD    DE, BC
+	LD    D, B
+	LD    E, C
 	LD    A,(CBANK)
 	LD    E,A
 	LD    BC, PAGEWORDS
 	LD    HL, BUF
 WLOOP1:
-	LD    (HL), DE       ; Prep the buffer
+	LD    (HL), E        ; Prep the buffer (low byte)
 	INC   HL
+	LD    (HL), D        ; Prep the buffer (high byte)
 	INC   HL
 	INC   DE
 	DEC   BC
@@ -121,7 +123,8 @@ RLOOP0:
 	POP   BC            ; Get the outer loop counter back
 	PUSH  BC
 
-	LD    DE, BC
+	LD    D, B
+	LD    E, C
 	LD    A,(CBANK)
 	LD    E,A
 	LD    BC, PAGEWORDS
@@ -147,7 +150,8 @@ NOTOKAY:
 	PUSH  DE
 	LD    DE, NEMSG
 	CALL  PRINTMSG
-	LD    DE, HL
+	LD    D, H
+	LD    E, L
 	CALL  PRINTHEXDE
 	LD    E, (HL)
 	INC   HL
@@ -277,7 +281,7 @@ CQSET:
 	RET
 CODE_END  equ $
 
-PHASE $e000
+	PHASE $e000
 COPY_LENGTH  equ STACK - SELXMEM + 2
 SELXMEM:
 	AND   $01              ;
@@ -363,7 +367,7 @@ XFERBUFFER:  DS $80
 
              DS $24
 STACK:       DW 0
-DEPHASE
+	DEPHASE
 
 BANNER:     dm "Commodity Quote Graphics memory board test. Scott M Baker.", $0D, $0A
             dm "   Updates by Brian Johnson", $0D, $0A, "$"

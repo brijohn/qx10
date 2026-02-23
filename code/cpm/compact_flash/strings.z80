@@ -1,14 +1,14 @@
 ; String handling routines
 ;
 ; (c) Copyright 2020-2022 Brian Johnson <brijohn@gmail.com>
-PUBLIC PRINTSTRING
-PUBLIC PRINTHEXWORD
-PUBLIC PRINTHEXBYTE
-PUBLIC PRINTWORDSTRING
+	PUBLIC PSTRING
+	PUBLIC PHEXWORD
+	PUBLIC PHEXBYTE
+	PUBLIC PWORDSTRING
 
 ; Prints NULL terminated string
 ; HL = pointer to string
-PRINTSTRING:
+PSTRING:
 	LD  A, (HL)         ; A = Next character to print
 	CP  0
 	RET Z               ; return if A == 0
@@ -18,12 +18,12 @@ PRINTSTRING:
 	CALL $0005          ; BDOS function
 	POP  HL
 	INC HL              ; Increment to next character
-	JR  PRINTSTRING     ; print next character
+	JR  PSTRING         ; print next character
 
 ; prints fixed sized string of big endian words
 ; IX = pointer to string
 ; B  = count
-PRINTWORDSTRING:
+PWORDSTRING:
 	PUSH BC
 	LD  E,(ix+1)        ; Load second byte of word into C
 	LD  C, $02
@@ -36,14 +36,14 @@ PRINTWORDSTRING:
 	RET Z               ; return when count hits 0
 	INC IX              ; Increment IX
 	INC IX              ; Increment IX
-	JR  PRINTWORDSTRING ; Print next word
+	JR  PWORDSTRING     ; Print next word
 
 
-PRINTHEXWORD:
+PHEXWORD:
 	LD  A, H
-	CALL PRINTHEXBYTE
+	CALL PHEXBYTE
 	LD  A, L
-PRINTHEXBYTE:
+PHEXBYTE:
 	PUSH AF
 	RRA
 	RRA

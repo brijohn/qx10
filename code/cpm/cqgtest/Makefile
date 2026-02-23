@@ -1,19 +1,20 @@
+# Build cqgtest using zmac
+ZMAC := ../../../tools/bin/zmac
+BUILD_DIR := ../../../build/apps
 
-CQGTEST_SRC = cqgtest.z80
-CQGTEST_OBJ = $(CQGTEST_SRC:.z80=.o)
+.PHONY: all clean
 
-CQGTEST = cqgtest.com
+all: $(BUILD_DIR)/cqgtest.com
 
-all: $(CQGTEST)
-
-disk: $(CQGTEST)
-	z88dk-appmake +cpmdisk -f qc10 --container imd  -b $(CQGTEST)
-
-$(CQGTEST): $(CQGTEST_OBJ)
-	z88dk-z80asm -l -s -m -g -v -b -o$@ $^
-
-%.o: %.z80
-	z88dk-z80asm -l -s -m -g -v $^
+# Build cqgtest.com from cqgtest.z80
+$(BUILD_DIR)/cqgtest.com: cqgtest.z80
+	@echo "Building cqgtest.com..."
+	@mkdir -p $(BUILD_DIR)
+	@$(ZMAC) -o $(BUILD_DIR)/cqgtest.cim $< > /dev/null 2>&1
+	@mv $(BUILD_DIR)/cqgtest.cim $@
+	@echo "cqgtest.com build complete"
 
 clean:
-	$(RM) *.o *.lis *.def *.sym *.bin *.map *.imd *.err $(CQGTEST)
+	@echo "Cleaning cqgtest build..."
+	@rm -f $(BUILD_DIR)/cqgtest.com
+	@echo "Clean complete"
