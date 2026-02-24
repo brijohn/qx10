@@ -31,6 +31,7 @@ apps: tools
 	@echo "Building CP/M applications..."
 	@$(MAKE) -C code/cpm/utility all
 	@$(MAKE) -C code/cpm/tune all
+	@$(MAKE) -C code/cpm/speech all
 	@$(MAKE) -C code/cpm/cqgtest all
 	@$(MAKE) -C code/cpm/compact_flash all
 
@@ -53,6 +54,8 @@ diskimage: bios cfboot apps
 	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/loadrom.com 0:loadrom.com
 	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:tune.com 2>/dev/null || true
 	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/tune.com 0:tune.com
+	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:speech.com 2>/dev/null || true
+	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/speech.com 0:speech.com
 	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:cqgtest.com 2>/dev/null || true
 	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/cqgtest.com 0:cqgtest.com
 	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:cfinfo.com 2>/dev/null || true
@@ -73,6 +76,7 @@ clean:
 	@echo "Cleaning CP/M applications..."
 	@$(MAKE) -C code/cpm/utility clean
 	@$(MAKE) -C code/cpm/tune clean
+	@$(MAKE) -C code/cpm/speech clean
 	@$(MAKE) -C code/cpm/cqgtest clean
 	@$(MAKE) -C code/cpm/compact_flash clean
 	@echo "Cleaning build directory..."

@@ -1,0 +1,78 @@
+	org 0x100
+
+main:
+	ld   c, 9
+	ld   de,banner
+	call 5
+	xor  a
+start:
+	ld   bc, 0
+	ld   hl, buffer
+	out  (0x13), a
+read_alphones:
+	call wait_rx
+	in   a, (0x11)
+	cmp  a, 0xff
+	jr   z, do_speech
+	cmp  a, 0xfe
+	jp   z, exit
+	ld   (hl), a
+	inc  hl
+	inc  bc
+	ld   a,b
+	cp   4
+	jr   z, buffer_full
+	call print_dot
+	jp   read_alphones
+buffer_full:
+	dec  bc
+do_speech:
+	ld   a, b
+	or   c
+	jp   z, start
+	ld   hl, buffer
+write_alphones:
+	call wait_tx
+	ld   a, (hl)
+	out  (0x9c), a
+	inc  hl
+	dec  bc
+	ld   a, b
+	or   c
+	jp   nz, write_alphones
+	jp   start
+
+print_dot:
+	push bc
+	push de
+	push hl
+	ld   c, 2
+	ld   e, 0x2e
+	call 5
+	pop  hl
+	pop  de
+	pop  bc
+	ret
+
+wait_tx:
+	in   a, (0x9c)
+	and  2
+	jr   nz,wait_tx
+	ret
+
+wait_rx:
+	in   a, (0x13)
+	bit  7, a
+	jr   nz, exit
+	and  0x01
+	jr   z, wait_rx
+	ret
+
+exit:
+	jp 0
+
+banner:
+	db "Epson QX-10 Text to Speech",0x0d,0x0a,"$"
+buffer:
+	ds 1024
+buffer_end: equ $
