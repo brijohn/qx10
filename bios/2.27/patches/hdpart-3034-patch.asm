@@ -237,7 +237,7 @@ l810ah:
 	ld a,h
 	out (CF_CYLINDERLO),a
 	xor a
-	out (CF_CYLINDERLO),a
+	out (CF_CYLINDERHI),a
 	ld a,1
 	out (CF_SECTORCOUNT),a
 l8137h:
