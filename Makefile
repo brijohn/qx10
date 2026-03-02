@@ -62,6 +62,10 @@ diskimage: bios cfboot apps
 	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/cfinfo.com 0:cfinfo.com
 	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:cfformat.com 2>/dev/null || true
 	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/apps/cfformat.com 0:cfformat.com
+	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:qxdisk.com 2>/dev/null || true
+	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/bios/2.27/qxdisk.com 0:qxdisk.com
+	@$(TOOLS_BIN)/cpmrm -f epsqx10 build/diskimages/qx16lba.imd 0:qxpc.com 2>/dev/null || true
+	@$(TOOLS_BIN)/cpmcp -f epsqx10 build/diskimages/qx16lba.imd build/bios/2.27/qxpc.com 0:qxpc.com
 	@echo "Disk image created at build/diskimages/qx16lba.imd"
 
 # Clean everything
