@@ -6,34 +6,40 @@
 ; An 9n1 USRT transmit program.
 ; OUT pin 0 and side-set pin 0 are both mapped to UART TX pin.
 
+; The 7201 launches TxD on the falling clock edge and samples RxD on the
+; rising edge; we follow the same convention so each bit is stable half a
+; cell before the 7201 reads it.
 .wrap_target
 	pull       side 1      ; Assert stop bit, or stall with line in idle state
-	wait 0 gpio PIN_CLK
 	wait 1 gpio PIN_CLK
-	set x, 8   side 0      ; Preload bit counter, assert start bit for 8 clocks
+	wait 0 gpio PIN_CLK    ; Falling edge: launch start bit
+	set x, 8   side 0      ; Preload bit counter, assert start bit
 bitloop:
-	wait 0 gpio PIN_CLK
-	wait 1 gpio PIN_CLK           ; This loop will run 8 times (8n1 UART)
-	out pins, 1            ; Shift 1 bit from OSR to the first OUT pin
-	jmp x-- bitloop        ; Each loop iteration is 8 cycles.
-	wait 0 gpio PIN_CLK
 	wait 1 gpio PIN_CLK
+	wait 0 gpio PIN_CLK    ; Falling edge: launch next bit
+	out pins, 1            ; Loop runs 9 times (8 data bits + parity)
+	jmp x-- bitloop
+	wait 1 gpio PIN_CLK
+	wait 0 gpio PIN_CLK    ; Hold parity bit a full cell, then wrap to stop
 .wrap
 
 
 .program uart_rx
+
+; The 7201 launches its bits just after the falling clock edge, so we sample
+; on the rising edge — the middle of each bit cell.
 .wrap_target
 restart:
-	wait 0 pin 0        ; Wait for start bit
+	wait 0 pin 0        ; Wait for start bit (launched at a falling edge)
 	set x, 8            ; Preload bit counter
-	wait 1 gpio PIN_CLK ; wait for falling edge of clk pin
-	wait 0 gpio PIN_CLK ; wait for falling edge of clk pin
-	jmp pin restart
-bitloop:                ; Loop 9 times
-	wait 1 gpio PIN_CLK ; wait for falling edge of clk pin
-	wait 0 gpio PIN_CLK ; wait for falling edge of clk pin
+	wait 0 gpio PIN_CLK ; CLK is already low just after the start edge
+	wait 1 gpio PIN_CLK ; Rising edge = middle of start bit
+	jmp pin restart     ; False start?
+bitloop:                ; Loop 9 times (8 data bits + parity)
+	wait 0 gpio PIN_CLK
+	wait 1 gpio PIN_CLK ; Rising edge = middle of data cell
 	in pins, 1          ; Sample data
-	jmp x-- bitloop     ; Each iteration is 8 cycles
+	jmp x-- bitloop
 	push
 .wrap
 

@@ -18,15 +18,15 @@
 static const uint16_t uart_tx_program_instructions[] = {
             //     .wrap_target
     0x98a0, //  0: pull   block           side 1     
-    0x200d, //  1: wait   0 gpio, 13                 
-    0x208d, //  2: wait   1 gpio, 13                 
+    0x208d, //  1: wait   1 gpio, 13                 
+    0x200d, //  2: wait   0 gpio, 13                 
     0xf028, //  3: set    x, 8            side 0     
-    0x200d, //  4: wait   0 gpio, 13                 
-    0x208d, //  5: wait   1 gpio, 13                 
+    0x208d, //  4: wait   1 gpio, 13                 
+    0x200d, //  5: wait   0 gpio, 13                 
     0x6001, //  6: out    pins, 1                    
     0x0044, //  7: jmp    x--, 4                     
-    0x200d, //  8: wait   0 gpio, 13                 
-    0x208d, //  9: wait   1 gpio, 13                 
+    0x208d, //  8: wait   1 gpio, 13                 
+    0x200d, //  9: wait   0 gpio, 13                 
             //     .wrap
 };
 
@@ -56,11 +56,11 @@ static const uint16_t uart_rx_program_instructions[] = {
             //     .wrap_target
     0x2020, //  0: wait   0 pin, 0                   
     0xe028, //  1: set    x, 8                       
-    0x208d, //  2: wait   1 gpio, 13                 
-    0x200d, //  3: wait   0 gpio, 13                 
+    0x200d, //  2: wait   0 gpio, 13                 
+    0x208d, //  3: wait   1 gpio, 13                 
     0x00c0, //  4: jmp    pin, 0                     
-    0x208d, //  5: wait   1 gpio, 13                 
-    0x200d, //  6: wait   0 gpio, 13                 
+    0x200d, //  5: wait   0 gpio, 13                 
+    0x208d, //  6: wait   1 gpio, 13                 
     0x4001, //  7: in     pins, 1                    
     0x0045, //  8: jmp    x--, 5                     
     0x8020, //  9: push   block                      
