@@ -572,7 +572,7 @@ next_partition:
 	mov ax, 010h                                        ;Each partion entry is 16 bytes
 	mul cx                                              ;Multiply with current partition number
 	mov bx, ax                                          ;Gives the index the for current entry
-	cmp byte [cs:si+bx+4], 001h                         ;Check that it is using a FAT12 partition
+	cmp byte [cs:si+bx+4], 004h                         ;Check that it is using a FAT16 (<32MB) partition
 	jne skip_partition                                  ;If it isn't check next primary partition
 	cmp word [cs:si+bx+0eh], 000h                       ;Check size is not more then 32 MB
 	jne skip_partition                                  ;If it is check next primary partition
